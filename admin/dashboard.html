@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard – RHU Admin</title>
+  <link rel="stylesheet" href="../css/styles.css" />
+</head>
+<body>
+
+<div class="admin-layout">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">🏥</div>
+      <div>
+        <div style="font-size:.9rem;">RHU Admin</div>
+        <div style="font-size:.72rem;opacity:.7;">Sanitary Permit System</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html" class="active">
+        <span class="nav-icon">📊</span>
+        <span class="nav-label">Dashboard</span>
+      </a>
+      <a href="applications.html">
+        <span class="nav-icon">📋</span>
+        <span class="nav-label">Applications</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="btn btn-outline btn-sm btn-block" id="btn-logout"
+              style="color:#fff;border-color:rgba(255,255,255,.5);">
+        Sign Out
+      </button>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <div class="admin-main">
+    <div class="admin-topbar">
+      <h1>Dashboard</h1>
+      <span id="admin-email" style="font-size:.88rem; color:var(--gray-600);"></span>
+    </div>
+
+    <div class="admin-content">
+
+      <!-- Stat cards -->
+      <div class="stat-grid" id="stat-grid">
+        <div class="stat-card">
+          <div class="stat-icon blue">📋</div>
+          <div class="stat-info">
+            <div class="stat-num" id="stat-total">—</div>
+            <div class="stat-label">Total Applications</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon yellow">⏳</div>
+          <div class="stat-info">
+            <div class="stat-num" id="stat-pending">—</div>
+            <div class="stat-label">Pending</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green">✅</div>
+          <div class="stat-info">
+            <div class="stat-num" id="stat-approved">—</div>
+            <div class="stat-label">Approved</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon red">❌</div>
+          <div class="stat-info">
+            <div class="stat-num" id="stat-rejected">—</div>
+            <div class="stat-label">Rejected</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon blue">📝</div>
+          <div class="stat-info">
+            <div class="stat-num" id="stat-revision">—</div>
+            <div class="stat-label">Needs Revision</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent applications -->
+      <div class="card">
+        <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+          <span>Recent Applications</span>
+          <a href="applications.html" class="btn btn-outline btn-sm">View All</a>
+        </div>
+        <div class="card-body" style="padding:0;">
+          <div class="table-wrap">
+            <table id="recent-table">
+              <thead>
+                <tr>
+                  <th>Reference #</th>
+                  <th>Applicant</th>
+                  <th>Type</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="recent-body">
+                <tr><td colspan="6" style="text-align:center;color:var(--gray-500);padding:2rem;">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /.admin-content -->
+  </div><!-- /.admin-main -->
+
+</div><!-- /.admin-layout -->
+
+<div id="toast-container" class="toast-container"></div>
+
+<script type="module">
+import { getSupabaseClient } from '../js/supabase.js';
+import { fetchStats, fetchApplications } from '../js/db.js';
+import { escapeHtml, formatDateTime } from '../js/utils.js';
+
+// ── Auth guard ────────────────────────────────────────────────────────────────
+(async () => {
+  const sb = getSupabaseClient();
+  if (sb) {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { window.location.href = 'login.html'; return; }
+    document.getElementById('admin-email').textContent = session.user.email;
+  } else {
+    const demo = sessionStorage.getItem('rhu_admin_demo');
+    if (!demo) { window.location.href = 'login.html'; return; }
+    try {
+      document.getElementById('admin-email').textContent = JSON.parse(demo).email + ' (demo)';
+    } catch { /* ignore */ }
+  }
+
+  loadDashboard();
+})();
+
+async function loadDashboard() {
+  // Stats
+  const stats = await fetchStats();
+  document.getElementById('stat-total').textContent   = stats.total;
+  document.getElementById('stat-pending').textContent  = stats.pending;
+  document.getElementById('stat-approved').textContent = stats.approved;
+  document.getElementById('stat-rejected').textContent = stats.rejected;
+  document.getElementById('stat-revision').textContent = stats.needs_revision;
+
+  // Recent (latest 8)
+  const { data: apps } = await fetchApplications({ perPage: 8 });
+  const tbody = document.getElementById('recent-body');
+  if (!apps || apps.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--gray-500);padding:2rem;">No applications yet.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = apps.slice(0, 8).map(a => `
+    <tr>
+      <td><code>${escapeHtml(a.reference_number)}</code></td>
+      <td>${escapeHtml(a.applicant_name)}</td>
+      <td style="font-size:.85rem;">${escapeHtml((a.application_type||'').replace(/_/g,' '))}</td>
+      <td>${statusBadge(a.status)}</td>
+      <td style="font-size:.85rem;">${formatDateTime(a.created_at)}</td>
+      <td><a href="review.html?id=${encodeURIComponent(a.id)}" class="btn btn-sm btn-outline">Review</a></td>
+    </tr>`).join('');
+}
+
+function statusBadge(status) {
+  const map = {
+    pending:        ['badge-pending',  '⏳ Pending'],
+    approved:       ['badge-approved', '✅ Approved'],
+    rejected:       ['badge-rejected', '❌ Rejected'],
+    needs_revision: ['badge-revision', '📝 Needs Revision'],
+  };
+  const [cls, label] = map[status] || ['badge-pending', status];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+// ── Sign out ──────────────────────────────────────────────────────────────────
+document.getElementById('btn-logout').addEventListener('click', async () => {
+  const sb = getSupabaseClient();
+  if (sb) await sb.auth.signOut();
+  sessionStorage.removeItem('rhu_admin_demo');
+  window.location.href = 'login.html';
+});
+</script>
+</body>
+</html>

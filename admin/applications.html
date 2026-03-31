@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Applications – RHU Admin</title>
+  <link rel="stylesheet" href="../css/styles.css" />
+</head>
+<body>
+
+<div class="admin-layout">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">🏥</div>
+      <div>
+        <div style="font-size:.9rem;">RHU Admin</div>
+        <div style="font-size:.72rem;opacity:.7;">Sanitary Permit System</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html">
+        <span class="nav-icon">📊</span>
+        <span class="nav-label">Dashboard</span>
+      </a>
+      <a href="applications.html" class="active">
+        <span class="nav-icon">📋</span>
+        <span class="nav-label">Applications</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="btn btn-outline btn-sm btn-block" id="btn-logout"
+              style="color:#fff;border-color:rgba(255,255,255,.5);">
+        Sign Out
+      </button>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <div class="admin-main">
+    <div class="admin-topbar">
+      <h1>All Applications</h1>
+      <span id="admin-email" style="font-size:.88rem; color:var(--gray-600);"></span>
+    </div>
+
+    <div class="admin-content">
+
+      <!-- Search & filter -->
+      <div class="search-filter-bar">
+        <div class="search-input-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="search-input" class="form-control" placeholder="Search by name, reference, or type…" />
+        </div>
+        <select id="status-filter" class="form-control" style="width:auto;min-width:160px;">
+          <option value="all">All Statuses</option>
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+          <option value="needs_revision">Needs Revision</option>
+        </select>
+        <button class="btn btn-primary" id="btn-apply-filter">Apply</button>
+      </div>
+
+      <!-- Table -->
+      <div class="card">
+        <div class="card-body" style="padding:0;">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Reference #</th>
+                  <th>Applicant</th>
+                  <th>Contact</th>
+                  <th>Application Type</th>
+                  <th>Status</th>
+                  <th>Date Submitted</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="app-tbody">
+                <tr><td colspan="7" style="text-align:center;color:var(--gray-500);padding:2rem;">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card-footer" style="display:flex;align-items:center;justify-content:space-between;">
+          <span id="results-info" style="font-size:.88rem;color:var(--gray-600);"></span>
+          <div class="pagination" id="pagination"></div>
+        </div>
+      </div>
+
+    </div><!-- /.admin-content -->
+  </div><!-- /.admin-main -->
+
+</div><!-- /.admin-layout -->
+
+<div id="toast-container" class="toast-container"></div>
+
+<script type="module">
+import { getSupabaseClient } from '../js/supabase.js';
+import { fetchApplications } from '../js/db.js';
+import { escapeHtml, formatDateTime } from '../js/utils.js';
+
+const PER_PAGE = 15;
+let currentPage = 1;
+let currentStatus = 'all';
+let currentSearch = '';
+
+// ── Auth guard ────────────────────────────────────────────────────────────────
+(async () => {
+  const sb = getSupabaseClient();
+  if (sb) {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { window.location.href = 'login.html'; return; }
+    document.getElementById('admin-email').textContent = session.user.email;
+  } else {
+    const demo = sessionStorage.getItem('rhu_admin_demo');
+    if (!demo) { window.location.href = 'login.html'; return; }
+    try { document.getElementById('admin-email').textContent = JSON.parse(demo).email + ' (demo)'; } catch { /* ignore */ }
+  }
+  loadApplications();
+})();
+
+// ── Load & render ─────────────────────────────────────────────────────────────
+async function loadApplications() {
+  document.getElementById('app-tbody').innerHTML =
+    `<tr><td colspan="7" style="text-align:center;color:var(--gray-500);padding:2rem;">Loading…</td></tr>`;
+
+  const { data: apps } = await fetchApplications({
+    status:  currentStatus,
+    search:  currentSearch,
+    page:    currentPage,
+    perPage: PER_PAGE,
+  });
+
+  const tbody = document.getElementById('app-tbody');
+  const info  = document.getElementById('results-info');
+
+  if (!apps || apps.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--gray-500);padding:2rem;">No applications found.</td></tr>`;
+    info.textContent = '';
+    document.getElementById('pagination').innerHTML = '';
+    return;
+  }
+
+  tbody.innerHTML = apps.map(a => `
+    <tr>
+      <td><code style="font-size:.85rem;">${escapeHtml(a.reference_number)}</code></td>
+      <td>${escapeHtml(a.applicant_name)}</td>
+      <td style="font-size:.85rem;">${escapeHtml(a.contact_info || '—')}</td>
+      <td style="font-size:.85rem;">${escapeHtml((a.application_type||'').replace(/_/g,' '))}</td>
+      <td>${statusBadge(a.status)}</td>
+      <td style="font-size:.85rem;white-space:nowrap;">${formatDateTime(a.created_at)}</td>
+      <td>
+        <a href="review.html?id=${encodeURIComponent(a.id)}" class="btn btn-sm btn-outline">Review</a>
+      </td>
+    </tr>`).join('');
+
+  info.textContent = `Showing ${apps.length} result(s)`;
+  renderPagination(apps.length);
+}
+
+function renderPagination(count) {
+  const pag = document.getElementById('pagination');
+  pag.innerHTML = '';
+
+  const prev = makePageBtn('‹', currentPage === 1);
+  prev.addEventListener('click', () => { if (currentPage > 1) { currentPage--; loadApplications(); } });
+  pag.appendChild(prev);
+
+  const span = document.createElement('span');
+  span.textContent = `Page ${currentPage}`;
+  span.style.cssText = 'font-size:.88rem;color:var(--gray-600);padding:0 .5rem;';
+  pag.appendChild(span);
+
+  const next = makePageBtn('›', count < PER_PAGE);
+  next.addEventListener('click', () => { if (count >= PER_PAGE) { currentPage++; loadApplications(); } });
+  pag.appendChild(next);
+}
+
+function makePageBtn(label, disabled) {
+  const btn = document.createElement('button');
+  btn.className = 'page-btn';
+  btn.textContent = label;
+  btn.disabled = disabled;
+  return btn;
+}
+
+function statusBadge(status) {
+  const map = {
+    pending:        ['badge-pending',  '⏳ Pending'],
+    approved:       ['badge-approved', '✅ Approved'],
+    rejected:       ['badge-rejected', '❌ Rejected'],
+    needs_revision: ['badge-revision', '📝 Needs Revision'],
+  };
+  const [cls, label] = map[status] || ['badge-pending', status];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+// ── Filter events ─────────────────────────────────────────────────────────────
+document.getElementById('btn-apply-filter').addEventListener('click', () => {
+  currentSearch = document.getElementById('search-input').value.trim();
+  currentStatus = document.getElementById('status-filter').value;
+  currentPage   = 1;
+  loadApplications();
+});
+
+document.getElementById('search-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('btn-apply-filter').click();
+});
+
+// ── Sign out ──────────────────────────────────────────────────────────────────
+document.getElementById('btn-logout').addEventListener('click', async () => {
+  const sb = getSupabaseClient();
+  if (sb) await sb.auth.signOut();
+  sessionStorage.removeItem('rhu_admin_demo');
+  window.location.href = 'login.html';
+});
+</script>
+</body>
+</html>

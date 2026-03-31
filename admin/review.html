@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Review Application – RHU Admin</title>
+  <link rel="stylesheet" href="../css/styles.css" />
+</head>
+<body>
+
+<div class="admin-layout">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">🏥</div>
+      <div>
+        <div style="font-size:.9rem;">RHU Admin</div>
+        <div style="font-size:.72rem;opacity:.7;">Sanitary Permit System</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html">
+        <span class="nav-icon">📊</span>
+        <span class="nav-label">Dashboard</span>
+      </a>
+      <a href="applications.html" class="active">
+        <span class="nav-icon">📋</span>
+        <span class="nav-label">Applications</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="btn btn-outline btn-sm btn-block" id="btn-logout"
+              style="color:#fff;border-color:rgba(255,255,255,.5);">
+        Sign Out
+      </button>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <div class="admin-main">
+    <div class="admin-topbar">
+      <div style="display:flex;align-items:center;gap:.75rem;">
+        <a href="applications.html" class="btn btn-outline btn-sm">← Back</a>
+        <h1 id="page-title">Review Application</h1>
+      </div>
+      <span id="admin-email" style="font-size:.88rem; color:var(--gray-600);"></span>
+    </div>
+
+    <div class="admin-content">
+
+      <div id="loading-msg" style="text-align:center;padding:3rem;color:var(--gray-500);">Loading application…</div>
+      <div id="error-msg" class="alert alert-danger hidden"></div>
+
+      <div id="review-layout" class="hidden">
+
+        <!-- Left column: Application details -->
+        <div style="display:grid;grid-template-columns:1fr 340px;gap:1.25rem;align-items:start;">
+          <div>
+
+            <!-- Header info -->
+            <div class="card mb-4" style="margin-bottom:1.25rem;">
+              <div class="card-body">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin-bottom:1rem;">
+                  <div>
+                    <div style="font-size:.82rem;color:var(--gray-500);margin-bottom:.25rem;">Reference Number</div>
+                    <div id="ref-num" style="font-size:1.4rem;font-weight:800;letter-spacing:.08em;color:var(--primary);"></div>
+                  </div>
+                  <div id="status-badge-wrap"></div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.75rem;" id="meta-fields"></div>
+              </div>
+            </div>
+
+            <!-- Applicant & business details -->
+            <div class="card mb-4" style="margin-bottom:1.25rem;">
+              <div class="card-header">📋 Application Details</div>
+              <div class="card-body" id="app-details"></div>
+            </div>
+
+            <!-- Uploaded files -->
+            <div class="card mb-4" style="margin-bottom:1.25rem;">
+              <div class="card-header">📎 Uploaded Documents</div>
+              <div class="card-body" id="uploaded-files">
+                <p style="color:var(--gray-500);font-size:.9rem;">No documents uploaded.</p>
+              </div>
+            </div>
+
+            <!-- Feedback history -->
+            <div class="card">
+              <div class="card-header">💬 Feedback History</div>
+              <div class="card-body" id="feedback-history">
+                <p style="color:var(--gray-500);font-size:.9rem;">No feedback yet.</p>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Right column: Actions -->
+          <div style="position:sticky;top:1.5rem;">
+
+            <div class="card mb-4" style="margin-bottom:1.25rem;">
+              <div class="card-header">⚙️ Update Status</div>
+              <div class="card-body">
+                <div class="form-group">
+                  <label for="status-select">Application Status</label>
+                  <select id="status-select" class="form-control">
+                    <option value="pending">⏳ Pending</option>
+                    <option value="approved">✅ Approved</option>
+                    <option value="rejected">❌ Rejected</option>
+                    <option value="needs_revision">📝 Needs Revision</option>
+                  </select>
+                </div>
+                <button class="btn btn-primary btn-block" id="btn-update-status">Update Status</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">💬 Add Feedback</div>
+              <div class="card-body">
+                <div class="form-group">
+                  <label for="feedback-input">Message to Applicant</label>
+                  <textarea id="feedback-input" class="form-control" rows="4"
+                            placeholder="Enter feedback or instructions for the applicant…"></textarea>
+                </div>
+                <button class="btn btn-primary btn-block" id="btn-add-feedback">Send Feedback</button>
+              </div>
+            </div>
+
+          </div>
+        </div><!-- /.grid -->
+
+      </div><!-- /#review-layout -->
+    </div><!-- /.admin-content -->
+  </div><!-- /.admin-main -->
+
+</div><!-- /.admin-layout -->
+
+<!-- Confirm modal -->
+<div class="modal-backdrop" id="confirm-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-title">Confirm Action</h2>
+      <button class="modal-close" id="modal-close-btn">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="modal-cancel-btn">Cancel</button>
+      <button class="btn btn-primary" id="modal-confirm-btn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container" class="toast-container"></div>
+
+<script type="module">
+import { getSupabaseClient } from '../js/supabase.js';
+import { fetchApplicationById, updateApplicationStatus, addFeedback } from '../js/db.js';
+import { getQueryParam, escapeHtml, formatDateTime, showToast } from '../js/utils.js';
+
+let currentApp = null;
+
+// ── Auth guard ────────────────────────────────────────────────────────────────
+(async () => {
+  const sb = getSupabaseClient();
+  if (sb) {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { window.location.href = 'login.html'; return; }
+    document.getElementById('admin-email').textContent = session.user.email;
+  } else {
+    const demo = sessionStorage.getItem('rhu_admin_demo');
+    if (!demo) { window.location.href = 'login.html'; return; }
+    try { document.getElementById('admin-email').textContent = JSON.parse(demo).email + ' (demo)'; } catch { /* ignore */ }
+  }
+
+  const id = getQueryParam('id');
+  if (!id) {
+    showError('No application ID provided.');
+    return;
+  }
+  loadApplication(id);
+})();
+
+async function loadApplication(id) {
+  const { data, error } = await fetchApplicationById(id);
+  document.getElementById('loading-msg').classList.add('hidden');
+
+  if (error || !data) {
+    showError('Application not found or could not be loaded.');
+    return;
+  }
+
+  currentApp = data;
+  renderApplication(data);
+
+  const layout = document.getElementById('review-layout');
+  layout.classList.remove('hidden');
+}
+
+function renderApplication(app) {
+  document.title = `Review ${app.reference_number} – RHU Admin`;
+  document.getElementById('page-title').textContent = `Review: ${app.reference_number}`;
+  document.getElementById('ref-num').textContent    = app.reference_number;
+
+  // Status badge
+  document.getElementById('status-badge-wrap').innerHTML = statusBadge(app.status, 'lg');
+  document.getElementById('status-select').value          = app.status;
+
+  // Meta fields
+  const meta = [
+    ['Applicant Name',    app.applicant_name],
+    ['Contact Info',      app.contact_info || '—'],
+    ['Application Type',  (app.application_type||'').replace(/_/g,' ')],
+    ['Date Submitted',    formatDateTime(app.created_at)],
+  ];
+  document.getElementById('meta-fields').innerHTML = meta.map(([l, v]) => `
+    <div style="background:var(--gray-100);border-radius:var(--radius);padding:.6rem .85rem;">
+      <div style="font-size:.78rem;color:var(--gray-500);margin-bottom:.2rem;">${escapeHtml(l)}</div>
+      <div style="font-size:.92rem;font-weight:600;">${escapeHtml(v)}</div>
+    </div>`).join('');
+
+  // Application details
+  const detailsEl = document.getElementById('app-details');
+  const details    = app.application_details || [];
+  const appDetails = app.details || {};
+
+  if (details.length > 0) {
+    detailsEl.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.6rem;">
+      ${details.map(d => `
+        <div style="background:var(--gray-100);border-radius:var(--radius);padding:.6rem .85rem;">
+          <div style="font-size:.78rem;color:var(--gray-500);margin-bottom:.2rem;">${escapeHtml(d.field_name.replace(/_/g,' '))}</div>
+          <div style="font-size:.92rem;font-weight:600;">${escapeHtml(d.field_value)}</div>
+        </div>`).join('')}
+    </div>`;
+  } else if (Object.keys(appDetails).length > 0) {
+    detailsEl.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.6rem;">
+      ${Object.entries(appDetails).map(([k, v]) => `
+        <div style="background:var(--gray-100);border-radius:var(--radius);padding:.6rem .85rem;">
+          <div style="font-size:.78rem;color:var(--gray-500);margin-bottom:.2rem;">${escapeHtml(k.replace(/_/g,' '))}</div>
+          <div style="font-size:.92rem;font-weight:600;">${escapeHtml(v||'—')}</div>
+        </div>`).join('')}
+    </div>`;
+  } else {
+    detailsEl.innerHTML = `<p style="color:var(--gray-500);font-size:.9rem;">No additional details available.</p>`;
+  }
+
+  // Uploaded files
+  const filesEl = document.getElementById('uploaded-files');
+  const files    = app.uploaded_files || app.files || [];
+  if (files.length > 0) {
+    filesEl.innerHTML = files.map(f => {
+      const name = f.file_name || (f.file && f.file.name) || 'Document';
+      const url  = f.file_url  || f.url  || null;
+      return `<div class="file-item" style="margin-bottom:.5rem;">
+        <span class="file-icon">📄</span>
+        <span class="file-name">${escapeHtml(name)}</span>
+        ${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline" style="flex-shrink:0;">View</a>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  // Feedback history
+  renderFeedback(app.feedback || []);
+}
+
+function renderFeedback(feedbacks) {
+  const el = document.getElementById('feedback-history');
+  if (!feedbacks || feedbacks.length === 0) {
+    el.innerHTML = `<p style="color:var(--gray-500);font-size:.9rem;">No feedback yet.</p>`;
+    return;
+  }
+  el.innerHTML = feedbacks.map(fb => `
+    <div style="background:var(--primary-light);border-left:3px solid var(--primary);
+                padding:.75rem 1rem;border-radius:0 var(--radius) var(--radius) 0;margin-bottom:.6rem;">
+      <p style="margin:0;font-size:.92rem;">${escapeHtml(fb.message)}</p>
+      <p style="margin:.3rem 0 0;font-size:.78rem;color:var(--gray-500);">${formatDateTime(fb.created_at)}</p>
+    </div>`).join('');
+}
+
+function statusBadge(status, size) {
+  const map = {
+    pending:        ['badge-pending',  '⏳ Pending'],
+    approved:       ['badge-approved', '✅ Approved'],
+    rejected:       ['badge-rejected', '❌ Rejected'],
+    needs_revision: ['badge-revision', '📝 Needs Revision'],
+  };
+  const [cls, label] = map[status] || ['badge-pending', status];
+  const style = size === 'lg' ? 'font-size:1rem;padding:.4rem 1rem;' : '';
+  return `<span class="badge ${cls}" style="${style}">${label}</span>`;
+}
+
+// ── Update status ─────────────────────────────────────────────────────────────
+document.getElementById('btn-update-status').addEventListener('click', () => {
+  const newStatus = document.getElementById('status-select').value;
+  openModal(
+    'Update Status',
+    `Change application status to <strong>${newStatus.replace(/_/g,' ')}</strong>?`,
+    async () => {
+      const { error } = await updateApplicationStatus(currentApp.id, newStatus);
+      if (error) { showToast('Failed to update status.', 'danger'); return; }
+      currentApp.status = newStatus;
+      document.getElementById('status-badge-wrap').innerHTML = statusBadge(newStatus, 'lg');
+      showToast('Status updated successfully.', 'success');
+    }
+  );
+});
+
+// ── Add feedback ──────────────────────────────────────────────────────────────
+document.getElementById('btn-add-feedback').addEventListener('click', async () => {
+  const msg = document.getElementById('feedback-input').value.trim();
+  if (!msg) { showToast('Please enter a feedback message.', 'warning'); return; }
+
+  const btn = document.getElementById('btn-add-feedback');
+  btn.disabled = true;
+  btn.textContent = '⏳ Sending…';
+
+  const { data, error } = await addFeedback(currentApp.id, msg);
+  btn.disabled = false;
+  btn.textContent = 'Send Feedback';
+
+  if (error) { showToast('Failed to save feedback.', 'danger'); return; }
+
+  currentApp.feedback = currentApp.feedback || [];
+  currentApp.feedback.push(data);
+  renderFeedback(currentApp.feedback);
+  document.getElementById('feedback-input').value = '';
+  showToast('Feedback sent successfully.', 'success');
+});
+
+// ── Confirm modal ─────────────────────────────────────────────────────────────
+let _confirmCallback = null;
+
+function openModal(title, body, onConfirm) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML    = body;
+  _confirmCallback = onConfirm;
+  document.getElementById('confirm-modal').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('confirm-modal').classList.remove('open');
+  _confirmCallback = null;
+}
+document.getElementById('modal-close-btn').addEventListener('click',   closeModal);
+document.getElementById('modal-cancel-btn').addEventListener('click',  closeModal);
+document.getElementById('confirm-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('confirm-modal')) closeModal();
+});
+document.getElementById('modal-confirm-btn').addEventListener('click', async () => {
+  const cb = _confirmCallback;
+  closeModal();
+  if (cb) await cb();
+});
+
+// ── Sign out ──────────────────────────────────────────────────────────────────
+document.getElementById('btn-logout').addEventListener('click', async () => {
+  const sb = getSupabaseClient();
+  if (sb) await sb.auth.signOut();
+  sessionStorage.removeItem('rhu_admin_demo');
+  window.location.href = 'login.html';
+});
+
+function showError(msg) {
+  const el = document.getElementById('error-msg');
+  el.innerHTML = `<span class="alert-icon">❌</span> ${escapeHtml(msg)}`;
+  el.classList.remove('hidden');
+}
+</script>
+</body>
+</html>
