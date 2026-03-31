@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Track Application – RHU Sanitary Permit System</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header class="site-header">
+  <nav class="navbar">
+    <a href="index.html" class="navbar-brand">
+      <span class="logo-icon">🏥</span>
+      <span>RHU Sanitary Permit System</span>
+    </a>
+    <ul class="navbar-nav">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="status.html" class="active">Track Application</a></li>
+      <li><a href="admin/login.html">Admin</a></li>
+    </ul>
+  </nav>
+</header>
+
+<section class="page-hero">
+  <h1>Track Your Application</h1>
+  <p>Enter your reference number to check the current status of your sanitary permit application.</p>
+</section>
+
+<main class="container">
+
+  <!-- Search card -->
+  <div class="track-card">
+    <h2 style="font-size:1.05rem; margin-bottom:1rem; color:var(--primary);">🔍 Enter Reference Number</h2>
+    <form id="track-form" novalidate>
+      <div class="form-row">
+        <div class="form-group" style="flex:1;">
+          <label for="ref-input" class="sr-only">Reference Number</label>
+          <input type="text" id="ref-input" class="form-control" placeholder="e.g. SP-20250101-ABC123"
+                 autocomplete="off" style="font-size:1.05rem; letter-spacing:.05em;" required />
+          <div class="form-error" id="ref-input-err">Please enter a reference number.</div>
+        </div>
+        <button type="submit" class="btn btn-primary" id="btn-search" style="align-self:flex-start; margin-top:1.55rem;">
+          Search
+        </button>
+      </div>
+    </form>
+
+    <!-- Result area -->
+    <div id="result-area" class="hidden"></div>
+  </div>
+
+</main>
+
+<footer class="site-footer">
+  <p>&copy; <span id="year"></span> Rural Health Unit. All rights reserved.</p>
+</footer>
+
+<div id="toast-container" class="toast-container"></div>
+
+<script type="module">
+import { fetchByReferenceNumber } from './js/db.js';
+import { escapeHtml, formatDateTime, getQueryParam, showToast } from './js/utils.js';
+
+document.getElementById('year').textContent = new Date().getFullYear();
+
+const form      = document.getElementById('track-form');
+const input     = document.getElementById('ref-input');
+const resultDiv = document.getElementById('result-area');
+const errDiv    = document.getElementById('ref-input-err');
+const searchBtn = document.getElementById('btn-search');
+
+// Auto-fill from URL param if present
+const preRef = getQueryParam('ref');
+if (preRef) { input.value = preRef; doSearch(preRef); }
+
+form.addEventListener('submit', e => {
+  e.preventDefault();
+  const val = input.value.trim();
+  if (!val) { errDiv.classList.remove('hidden'); return; }
+  errDiv.classList.add('hidden');
+  doSearch(val);
+});
+
+async function doSearch(ref) {
+  searchBtn.disabled = true;
+  searchBtn.textContent = '⏳ Searching…';
+  resultDiv.classList.add('hidden');
+  resultDiv.innerHTML = '';
+
+  const { data, error } = await fetchByReferenceNumber(ref);
+
+  searchBtn.disabled = false;
+  searchBtn.textContent = 'Search';
+
+  if (error || !data) {
+    resultDiv.innerHTML = `
+      <div class="alert alert-danger mt-3" style="margin-top:1rem;">
+        <span class="alert-icon">❌</span>
+        <div><strong>Not found.</strong> No application matches reference number <strong>${escapeHtml(ref)}</strong>.
+        Please check your reference number and try again.</div>
+      </div>`;
+    resultDiv.classList.remove('hidden');
+    return;
+  }
+
+  renderResult(data);
+}
+
+const STATUS_CONFIG = {
+  pending:        { label: 'Pending',        class: 'badge-pending',  icon: '⏳', timelineClass: 'active' },
+  approved:       { label: 'Approved',       class: 'badge-approved', icon: '✅', timelineClass: 'done'   },
+  rejected:       { label: 'Rejected',       class: 'badge-rejected', icon: '❌', timelineClass: 'done'   },
+  needs_revision: { label: 'Needs Revision', class: 'badge-revision', icon: '📝', timelineClass: 'active' },
+};
+
+function renderResult(app) {
+  const cfg    = STATUS_CONFIG[app.status] || STATUS_CONFIG.pending;
+  const details = app.details || {};
+
+  // Build details rows
+  let detailRows = '';
+  if (app.application_details && Array.isArray(app.application_details)) {
+    app.application_details.forEach(d => {
+      if (d.field_value) {
+        detailRows += `<tr><td style="color:var(--gray-600);font-size:.88rem;">${escapeHtml(d.field_name.replace(/_/g,' '))}</td><td>${escapeHtml(d.field_value)}</td></tr>`;
+      }
+    });
+  } else {
+    Object.entries(details).forEach(([k, v]) => {
+      if (v) detailRows += `<tr><td style="color:var(--gray-600);font-size:.88rem;">${escapeHtml(k.replace(/_/g,' '))}</td><td>${escapeHtml(v)}</td></tr>`;
+    });
+  }
+
+  // Build feedback list
+  let feedbackHtml = '';
+  const feedbacks = app.feedback || [];
+  if (feedbacks.length) {
+    feedbackHtml = `<div style="margin-top:1.25rem;">
+      <h4 style="font-size:.92rem;font-weight:700;margin-bottom:.6rem;color:var(--primary);">📬 Feedback from Reviewer</h4>`;
+    feedbacks.forEach(fb => {
+      feedbackHtml += `<div style="background:var(--primary-light);border-left:3px solid var(--primary);padding:.75rem 1rem;border-radius:0 var(--radius) var(--radius) 0;margin-bottom:.6rem;">
+        <p style="margin:0;font-size:.92rem;">${escapeHtml(fb.message)}</p>
+        <p style="margin:.3rem 0 0;font-size:.78rem;color:var(--gray-500);">${formatDateTime(fb.created_at)}</p>
+      </div>`;
+    });
+    feedbackHtml += `</div>`;
+  }
+
+  // Timeline (simplified 4-step)
+  const steps = [
+    { label: 'Submitted',    desc: formatDateTime(app.created_at), done: true },
+    { label: 'Under Review', desc: 'Application is being reviewed by the health officer.', done: ['approved','rejected','needs_revision'].includes(app.status) },
+    { label: app.status === 'needs_revision' ? 'Needs Revision' : (app.status === 'rejected' ? 'Rejected' : 'Approved'),
+      desc:  app.status === 'approved'  ? 'Your application has been approved.' :
+             app.status === 'rejected'  ? 'Your application was not approved. Please contact the RHU for details.' :
+             app.status === 'needs_revision' ? 'Please provide additional information or revised documents.' :
+             'Awaiting decision.',
+      done: ['approved','rejected','needs_revision'].includes(app.status),
+      active: app.status === 'needs_revision' },
+    { label: 'Release',      desc: 'Permit released / ready for pickup.', done: app.status === 'approved' },
+  ];
+
+  const timelineHtml = steps.map(s => `
+    <div class="timeline-item">
+      <div class="timeline-dot ${s.done ? 'done' : s.active ? 'active' : ''}">${s.done ? '✓' : s.active ? '!' : '○'}</div>
+      <div class="timeline-body">
+        <strong>${escapeHtml(s.label)}</strong>
+        <span>${escapeHtml(s.desc)}</span>
+      </div>
+    </div>`).join('');
+
+  resultDiv.innerHTML = `
+    <hr style="margin:1.25rem 0;border-color:var(--gray-200);" />
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin-bottom:1rem;">
+      <div>
+        <div style="font-size:.82rem;color:var(--gray-500);margin-bottom:.2rem;">Reference Number</div>
+        <div style="font-size:1.3rem;font-weight:800;letter-spacing:.08em;color:var(--primary);">${escapeHtml(app.reference_number)}</div>
+      </div>
+      <span class="badge ${cfg.class}" style="font-size:.95rem;padding:.4rem 1rem;">${cfg.icon} ${cfg.label}</span>
+    </div>
+
+    <div class="table-wrap" style="margin-bottom:1rem;">
+      <table>
+        <tbody>
+          <tr><td style="color:var(--gray-600);font-size:.88rem;">Applicant Name</td><td>${escapeHtml(app.applicant_name)}</td></tr>
+          <tr><td style="color:var(--gray-600);font-size:.88rem;">Application Type</td><td>${escapeHtml(app.application_type?.replace(/_/g,' ') || '—')}</td></tr>
+          <tr><td style="color:var(--gray-600);font-size:.88rem;">Date Submitted</td><td>${formatDateTime(app.created_at)}</td></tr>
+          ${detailRows}
+        </tbody>
+      </table>
+    </div>
+
+    <h4 style="font-size:.92rem;font-weight:700;margin-bottom:.75rem;color:var(--primary);">📍 Application Progress</h4>
+    <div class="status-timeline">${timelineHtml}</div>
+
+    ${feedbackHtml}
+  `;
+  resultDiv.classList.remove('hidden');
+}
+</script>
+</body>
+</html>

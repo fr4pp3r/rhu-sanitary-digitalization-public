@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Apply – RHU Sanitary Permit System</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header class="site-header">
+  <nav class="navbar">
+    <a href="index.html" class="navbar-brand">
+      <span class="logo-icon">🏥</span>
+      <span>RHU Sanitary Permit System</span>
+    </a>
+    <ul class="navbar-nav">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="status.html">Track Application</a></li>
+      <li><a href="admin/login.html">Admin</a></li>
+    </ul>
+  </nav>
+</header>
+
+<!-- ── Page Title (filled by JS) ── -->
+<section class="page-hero" id="page-hero">
+  <h1 id="page-title">Application Form</h1>
+  <p id="page-subtitle">Fill in the required information and upload the necessary documents.</p>
+</section>
+
+<main class="container" style="padding-top:1.5rem; padding-bottom:2rem;">
+
+  <!-- Step indicator -->
+  <div class="steps" id="steps">
+    <div class="step active"  id="step-1">
+      <div class="step-circle">1</div>
+      <div class="step-label">Your Info</div>
+    </div>
+    <div class="step" id="step-2">
+      <div class="step-circle">2</div>
+      <div class="step-label">Business Info</div>
+    </div>
+    <div class="step" id="step-3">
+      <div class="step-circle">3</div>
+      <div class="step-label">Upload Files</div>
+    </div>
+    <div class="step" id="step-4">
+      <div class="step-circle">4</div>
+      <div class="step-label">Submit</div>
+    </div>
+  </div>
+
+  <!-- Alert area -->
+  <div id="form-alert" class="hidden"></div>
+
+  <!-- STEP 1: Applicant Info -->
+  <div id="panel-1">
+    <form id="form-applicant" novalidate>
+      <div class="form-section">
+        <div class="form-section-title">👤 Applicant Information</div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="applicant_name">Full Name <span class="required">*</span></label>
+            <input type="text" id="applicant_name" name="applicant_name" class="form-control"
+                   placeholder="e.g. Juan Dela Cruz" required autocomplete="name" />
+            <div class="form-error" id="err-applicant_name">Please enter your full name.</div>
+          </div>
+          <div class="form-group">
+            <label for="contact_number">Contact Number <span class="required">*</span></label>
+            <input type="tel" id="contact_number" name="contact_number" class="form-control"
+                   placeholder="e.g. 09171234567" required autocomplete="tel" />
+            <div class="form-error" id="err-contact_number">Please enter your contact number.</div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="email_address">Email Address</label>
+            <input type="email" id="email_address" name="email_address" class="form-control"
+                   placeholder="optional" autocomplete="email" />
+          </div>
+          <div class="form-group">
+            <label for="home_address">Home Address <span class="required">*</span></label>
+            <input type="text" id="home_address" name="home_address" class="form-control"
+                   placeholder="Street, Barangay, Municipality" required />
+            <div class="form-error" id="err-home_address">Please enter your home address.</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end;">
+        <button type="submit" class="btn btn-primary">Next: Business Info →</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- STEP 2: Business / Application-specific fields (rendered by JS) -->
+  <div id="panel-2" class="hidden">
+    <div class="form-section">
+      <div class="form-section-title" id="dynamic-section-title">📋 Application Details</div>
+      <div id="dynamic-fields"></div>
+    </div>
+    <div style="display:flex; justify-content:space-between;">
+      <button class="btn btn-outline" id="btn-back-1">← Back</button>
+      <button class="btn btn-primary" id="btn-next-2">Next: Upload Files →</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: File Uploads -->
+  <div id="panel-3" class="hidden">
+    <div class="form-section">
+      <div class="form-section-title">📎 Required Documents</div>
+      <div id="file-upload-area"></div>
+    </div>
+    <div style="display:flex; justify-content:space-between;">
+      <button class="btn btn-outline" id="btn-back-2">← Back</button>
+      <button class="btn btn-primary" id="btn-next-3">Next: Review & Submit →</button>
+    </div>
+  </div>
+
+  <!-- STEP 4: Review & Submit -->
+  <div id="panel-4" class="hidden">
+    <div class="form-section">
+      <div class="form-section-title">🔍 Review Your Application</div>
+      <div id="review-content"></div>
+    </div>
+
+    <!-- Terms -->
+    <div class="form-section">
+      <div class="form-group" style="display:flex;align-items:flex-start;gap:.75rem;">
+        <input type="checkbox" id="agree-terms" style="margin-top:.25rem; flex-shrink:0; width:18px;height:18px; cursor:pointer;" />
+        <label for="agree-terms" style="margin:0; font-weight:400; font-size:.92rem; cursor:pointer;">
+          I certify that all information provided is true and correct to the best of my knowledge.
+          I understand that providing false information may result in the rejection or revocation of the permit.
+        </label>
+      </div>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <button class="btn btn-outline" id="btn-back-3">← Back</button>
+      <button class="btn btn-primary btn-lg" id="btn-submit" disabled>
+        <span id="submit-label">Submit Application</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- STEP 5: Success -->
+  <div id="panel-success" class="hidden" style="text-align:center; padding: 2rem 0;">
+    <div style="font-size:4rem;">🎉</div>
+    <h2 style="margin:.75rem 0 .5rem; color:var(--primary);">Application Submitted!</h2>
+    <p style="color:var(--gray-600); max-width:500px; margin:0 auto 1.25rem;">
+      Your application has been received. Please save your reference number below — you will need it to track your application status.
+    </p>
+    <div class="ref-box" id="ref-box">
+      <p>Your Reference Number</p>
+      <div class="ref-number" id="ref-display">—</div>
+      <p>Keep this number for your records</p>
+    </div>
+    <div style="display:flex; justify-content:center; gap:1rem; flex-wrap:wrap; margin-top:1.5rem;">
+      <button class="btn btn-outline" id="btn-copy-ref">📋 Copy Reference Number</button>
+      <a href="status.html" class="btn btn-primary">Track Application Status</a>
+      <a href="index.html" class="btn btn-accent">Submit Another Application</a>
+    </div>
+  </div>
+
+</main>
+
+<footer class="site-footer">
+  <p>&copy; <span id="year"></span> Rural Health Unit. All rights reserved.</p>
+</footer>
+
+<!-- Toast container (added dynamically by utils.js) -->
+<div id="toast-container" class="toast-container"></div>
+
+<script type="module">
+import { APPLICATION_TYPES }   from './js/data.js';
+import { getQueryParam, formatFileSize, fileIcon, showToast, escapeHtml } from './js/utils.js';
+import { submitApplication, uploadFile } from './js/db.js';
+
+document.getElementById('year').textContent = new Date().getFullYear();
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let currentStep = 1;
+const totalSteps = 4;
+const applicantData = {};
+const dynamicData   = {};
+const uploadedFiles = {};  // field_name → [{file, url}]
+
+// ── Locate application type ────────────────────────────────────────────────────
+const typeId = getQueryParam('type');
+const appType = APPLICATION_TYPES.find(t => t.id === typeId);
+
+if (!appType) {
+  document.getElementById('page-title').textContent = 'Application Not Found';
+  document.getElementById('page-subtitle').textContent = 'The requested application type does not exist.';
+  document.getElementById('panel-1').innerHTML =
+    `<div class="alert alert-danger"><span class="alert-icon">❌</span>
+     Invalid application type. <a href="index.html">Go back to Home</a>.</div>`;
+} else {
+  document.title = `${appType.name} – RHU Sanitary Permit System`;
+  document.getElementById('page-title').textContent    = appType.name;
+  document.getElementById('page-subtitle').textContent = appType.description;
+  document.getElementById('dynamic-section-title').textContent = `${appType.icon} Application Details`;
+  buildDynamicFields(appType);
+  buildFileUploads(appType);
+}
+
+function goToStep(n) {
+  for (let i = 1; i <= totalSteps; i++) {
+    const panel = document.getElementById(`panel-${i}`);
+    const step  = document.getElementById(`step-${i}`);
+    if (panel) panel.classList.toggle('hidden', i !== n);
+    if (step) {
+      step.classList.toggle('active',    i === n);
+      step.classList.toggle('completed', i < n);
+    }
+  }
+  currentStep = n;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Step 1: Applicant form ─────────────────────────────────────────────────────
+document.getElementById('form-applicant').addEventListener('submit', e => {
+  e.preventDefault();
+  if (!validateApplicantForm()) return;
+  ['applicant_name','contact_number','email_address','home_address'].forEach(id => {
+    applicantData[id] = document.getElementById(id).value.trim();
+  });
+  goToStep(2);
+});
+
+function validateApplicantForm() {
+  let ok = true;
+  ['applicant_name','contact_number','home_address'].forEach(id => {
+    const el  = document.getElementById(id);
+    const err = document.getElementById(`err-${id}`);
+    if (!el.value.trim()) {
+      el.classList.add('is-invalid');
+      err.classList.add('visible');
+      ok = false;
+    } else {
+      el.classList.remove('is-invalid');
+      err.classList.remove('visible');
+    }
+  });
+  return ok;
+}
+
+// ── Dynamic fields (Step 2) ───────────────────────────────────────────────────
+function buildDynamicFields(type) {
+  const container = document.getElementById('dynamic-fields');
+  type.fields.forEach(f => {
+    const group = document.createElement('div');
+    group.className = 'form-group';
+    const labelText = escapeHtml(f.label) + (f.required ? ' <span class="required">*</span>' : '');
+    let input = '';
+
+    if (f.type === 'select') {
+      const opts = f.options.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('');
+      input = `<select id="df-${escapeHtml(f.name)}" name="${escapeHtml(f.name)}" class="form-control"
+                       ${f.required ? 'required' : ''}>
+                 <option value="">— Select —</option>${opts}</select>`;
+    } else if (f.type === 'textarea') {
+      input = `<textarea id="df-${escapeHtml(f.name)}" name="${escapeHtml(f.name)}" class="form-control"
+                         rows="3" ${f.required ? 'required' : ''}></textarea>`;
+    } else {
+      input = `<input type="${escapeHtml(f.type)}" id="df-${escapeHtml(f.name)}" name="${escapeHtml(f.name)}"
+                      class="form-control" ${f.required ? 'required' : ''} />`;
+    }
+
+    group.innerHTML = `<label for="df-${escapeHtml(f.name)}">${labelText}</label>${input}
+                       <div class="form-error" id="df-err-${escapeHtml(f.name)}">This field is required.</div>`;
+    container.appendChild(group);
+  });
+}
+
+document.getElementById('btn-back-1').addEventListener('click', () => goToStep(1));
+document.getElementById('btn-next-2').addEventListener('click', () => {
+  if (!appType) return;
+  let ok = true;
+  appType.fields.forEach(f => {
+    const el  = document.getElementById(`df-${f.name}`);
+    const err = document.getElementById(`df-err-${f.name}`);
+    if (!el) return;
+    if (f.required && !el.value.trim()) {
+      el.classList.add('is-invalid');
+      err.classList.add('visible');
+      ok = false;
+    } else {
+      el.classList.remove('is-invalid');
+      err.classList.remove('visible');
+      dynamicData[f.name] = el.value.trim();
+    }
+  });
+  if (ok) goToStep(3);
+});
+
+// ── File uploads (Step 3) ─────────────────────────────────────────────────────
+function buildFileUploads(type) {
+  const container = document.getElementById('file-upload-area');
+  type.files.forEach(f => {
+    const wrap = document.createElement('div');
+    wrap.style.marginBottom = '1.25rem';
+    wrap.innerHTML = `
+      <label style="font-weight:600;font-size:.92rem;display:block;margin-bottom:.5rem;">
+        ${escapeHtml(f.label)}${f.required ? ' <span class="required">*</span>' : ' <span style="color:var(--gray-500);font-weight:400;">(optional)</span>'}
+      </label>
+      <div class="file-upload-area" id="fua-${escapeHtml(f.name)}">
+        <input type="file" id="fi-${escapeHtml(f.name)}" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" multiple />
+        <div class="upload-icon">📎</div>
+        <p><strong>Click to browse</strong> or drag & drop files here</p>
+        <p style="font-size:.8rem; color:var(--gray-500); margin-top:.3rem;">Accepted: PDF, JPG, PNG, DOC/DOCX (max 10 MB each)</p>
+      </div>
+      <div class="file-list" id="fl-${escapeHtml(f.name)}"></div>
+      <div class="form-error" id="ferr-${escapeHtml(f.name)}">Please upload the required document.</div>
+    `;
+    container.appendChild(wrap);
+    setupFileInput(f.name, f.required);
+  });
+}
+
+function setupFileInput(fieldName, required) {
+  const input   = document.getElementById(`fi-${fieldName}`);
+  const dropArea = document.getElementById(`fua-${fieldName}`);
+  if (!input) return;
+
+  uploadedFiles[fieldName] = [];
+
+  input.addEventListener('change', () => handleFiles(fieldName, input.files, required));
+
+  dropArea.addEventListener('dragover', e => { e.preventDefault(); dropArea.classList.add('dragover'); });
+  dropArea.addEventListener('dragleave', () => dropArea.classList.remove('dragover'));
+  dropArea.addEventListener('drop', e => {
+    e.preventDefault();
+    dropArea.classList.remove('dragover');
+    handleFiles(fieldName, e.dataTransfer.files, required);
+  });
+}
+
+function handleFiles(fieldName, fileList, required) {
+  const errEl = document.getElementById(`ferr-${fieldName}`);
+  for (const file of fileList) {
+    if (file.size > 10 * 1024 * 1024) {
+      showToast(`${file.name} exceeds the 10 MB limit.`, 'danger');
+      continue;
+    }
+    uploadedFiles[fieldName] = uploadedFiles[fieldName] || [];
+    uploadedFiles[fieldName].push({ file, url: null, status: 'pending' });
+  }
+  renderFileList(fieldName);
+  if (required && errEl) errEl.classList.remove('visible');
+}
+
+function renderFileList(fieldName) {
+  const list = document.getElementById(`fl-${fieldName}`);
+  if (!list) return;
+  list.innerHTML = '';
+  (uploadedFiles[fieldName] || []).forEach((entry, idx) => {
+    const item = document.createElement('div');
+    item.className = 'file-item';
+    item.innerHTML = `
+      <span class="file-icon">${fileIcon(entry.file.name)}</span>
+      <span class="file-name">${escapeHtml(entry.file.name)}</span>
+      <span class="file-size">${formatFileSize(entry.file.size)}</span>
+      <button class="file-remove" data-field="${escapeHtml(fieldName)}" data-idx="${idx}" title="Remove file" type="button">✕</button>
+    `;
+    list.appendChild(item);
+  });
+
+  list.querySelectorAll('.file-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const field = btn.dataset.field;
+      const i     = parseInt(btn.dataset.idx, 10);
+      uploadedFiles[field].splice(i, 1);
+      renderFileList(field);
+    });
+  });
+}
+
+document.getElementById('btn-back-2').addEventListener('click', () => goToStep(2));
+document.getElementById('btn-next-3').addEventListener('click', () => {
+  if (!appType) return;
+  let ok = true;
+  appType.files.forEach(f => {
+    if (f.required && (!uploadedFiles[f.name] || uploadedFiles[f.name].length === 0)) {
+      document.getElementById(`ferr-${f.name}`).classList.add('visible');
+      ok = false;
+    }
+  });
+  if (!ok) { showToast('Please upload all required documents.', 'warning'); return; }
+  buildReview();
+  goToStep(4);
+});
+
+// ── Review (Step 4) ───────────────────────────────────────────────────────────
+function buildReview() {
+  const div = document.getElementById('review-content');
+  let html = '';
+
+  html += `<div style="margin-bottom:1rem;">
+    <h4 style="font-size:.9rem;color:var(--gray-600);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem;">Applicant Information</h4>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.6rem;">
+      ${entry('Full Name',       applicantData.applicant_name)}
+      ${entry('Contact Number',  applicantData.contact_number)}
+      ${entry('Email',           applicantData.email_address || '—')}
+      ${entry('Home Address',    applicantData.home_address)}
+    </div>
+  </div>`;
+
+  if (appType && appType.fields.length) {
+    html += `<div style="margin-bottom:1rem;">
+      <h4 style="font-size:.9rem;color:var(--gray-600);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem;">Application Details</h4>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.6rem;">
+        ${appType.fields.map(f => entry(f.label, dynamicData[f.name] || '—')).join('')}
+      </div>
+    </div>`;
+  }
+
+  if (appType) {
+    const fileEntries = appType.files.map(f => {
+      const files = uploadedFiles[f.name] || [];
+      const fileNames = files.length ? files.map(e => escapeHtml(e.file.name)).join(', ') : '—';
+      return entry(f.label, fileNames);
+    }).join('');
+    html += `<div>
+      <h4 style="font-size:.9rem;color:var(--gray-600);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem;">Documents to Upload</h4>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.6rem;">${fileEntries}</div>
+    </div>`;
+  }
+
+  div.innerHTML = html;
+}
+
+function entry(label, value) {
+  return `<div style="background:var(--gray-100);border-radius:var(--radius);padding:.6rem .85rem;">
+    <div style="font-size:.78rem;color:var(--gray-500);margin-bottom:.2rem;">${escapeHtml(label)}</div>
+    <div style="font-size:.92rem;font-weight:600;">${escapeHtml(value)}</div>
+  </div>`;
+}
+
+// Toggle submit button on checkbox
+document.getElementById('agree-terms').addEventListener('change', function() {
+  document.getElementById('btn-submit').disabled = !this.checked;
+});
+document.getElementById('btn-back-3').addEventListener('click', () => goToStep(3));
+
+// ── Submission ────────────────────────────────────────────────────────────────
+document.getElementById('btn-submit').addEventListener('click', async () => {
+  const btn   = document.getElementById('btn-submit');
+  const label = document.getElementById('submit-label');
+  btn.disabled = true;
+  label.textContent = '⏳ Submitting…';
+
+  try {
+    // 1. Submit application record
+    const { data: appRecord, error: appErr } = await submitApplication({
+      applicant_name:   applicantData.applicant_name,
+      contact_info:     applicantData.contact_number,
+      application_type: appType ? appType.id : 'unknown',
+      details: { ...applicantData, ...dynamicData },
+    });
+
+    if (appErr) throw new Error(appErr.message || 'Submission failed.');
+
+    // 2. Upload files
+    if (appType) {
+      for (const fDef of appType.files) {
+        const files = uploadedFiles[fDef.name] || [];
+        for (const entry of files) {
+          const { url, error: upErr } = await uploadFile(appRecord.id, entry.file);
+          if (upErr) {
+            console.warn(`Failed to upload ${entry.file.name}:`, upErr.message);
+          } else {
+            entry.url = url;
+          }
+        }
+      }
+    }
+
+    // 3. Show success
+    goToPanel('success');
+    document.getElementById('ref-display').textContent = appRecord.reference_number;
+    document.getElementById('panel-success').classList.remove('hidden');
+    document.getElementById('steps').classList.add('hidden');
+
+  } catch (err) {
+    showToast(err.message, 'danger');
+    btn.disabled = false;
+    label.textContent = 'Submit Application';
+  }
+});
+
+function goToPanel(name) {
+  for (let i = 1; i <= 4; i++) {
+    const p = document.getElementById(`panel-${i}`);
+    if (p) p.classList.add('hidden');
+  }
+}
+
+// Copy reference number
+document.getElementById('btn-copy-ref').addEventListener('click', () => {
+  const ref = document.getElementById('ref-display').textContent;
+  navigator.clipboard.writeText(ref).then(
+    () => showToast('Reference number copied!', 'success'),
+    () => showToast('Could not copy automatically. Please copy manually.', 'warning')
+  );
+});
+</script>
+</body>
+</html>

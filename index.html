@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RHU Sanitary Permit System</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header class="site-header">
+  <nav class="navbar">
+    <a href="index.html" class="navbar-brand">
+      <span class="logo-icon">🏥</span>
+      <span>RHU Sanitary Permit System</span>
+    </a>
+    <ul class="navbar-nav">
+      <li><a href="index.html" class="active">Home</a></li>
+      <li><a href="status.html">Track Application</a></li>
+      <li><a href="admin/login.html">Admin</a></li>
+    </ul>
+  </nav>
+</header>
+
+<!-- ── Hero ── -->
+<section class="page-hero">
+  <h1>Rural Health Unit – Sanitary Permit System</h1>
+  <p>Apply for sanitary permits, health certificates, and other public health clearances online. Select the type of application below to get started.</p>
+</section>
+
+<!-- ── Application Types ── -->
+<main class="container">
+
+  <!-- Info bar -->
+  <div class="alert alert-info mt-4" style="justify-content:flex-start;">
+    <span class="alert-icon">ℹ️</span>
+    <div>
+      <strong>No login required</strong> to submit an application.
+      After submission you will receive a <strong>reference number</strong> you can use to track your application status.
+    </div>
+  </div>
+
+  <h2 style="margin-top:1.5rem; font-size:1.15rem; color:var(--gray-700);">
+    Choose Application Type
+  </h2>
+
+  <div class="app-types-grid" id="types-grid">
+    <!-- Populated by JS -->
+    <noscript>
+      <p class="alert alert-warning">JavaScript is required to display the application types. Please enable it in your browser.</p>
+    </noscript>
+  </div>
+
+  <!-- Highlight / status tracker CTA -->
+  <div class="card mb-4" style="background:var(--primary-light); border:2px solid var(--primary);">
+    <div class="card-body" style="display:flex;align-items:center;gap:1.25rem;flex-wrap:wrap;">
+      <span style="font-size:2.5rem;">🔍</span>
+      <div style="flex:1;min-width:220px;">
+        <h3 style="margin-bottom:.3rem; font-size:1rem;">Already submitted an application?</h3>
+        <p style="font-size:.9rem; color:var(--gray-700);">Use your reference number to check the current status of your application.</p>
+      </div>
+      <a href="status.html" class="btn btn-primary">Track My Application</a>
+    </div>
+  </div>
+
+</main>
+
+<!-- ── Footer ── -->
+<footer class="site-footer">
+  <p>&copy; <span id="year"></span> Rural Health Unit. All rights reserved.</p>
+</footer>
+
+<!-- ── Scripts ── -->
+<script type="module">
+  import { APPLICATION_TYPES } from './js/data.js';
+  import { escapeHtml } from './js/utils.js';
+
+  const grid = document.getElementById('types-grid');
+  document.getElementById('year').textContent = new Date().getFullYear();
+
+  APPLICATION_TYPES.forEach(type => {
+    const card = document.createElement('a');
+    card.href      = `application.html?type=${encodeURIComponent(type.id)}`;
+    card.className = 'app-type-card';
+    card.innerHTML = `
+      <div class="icon">${escapeHtml(type.icon)}</div>
+      <h3>${escapeHtml(type.name)}</h3>
+      <p>${escapeHtml(type.description)}</p>
+    `;
+    grid.appendChild(card);
+  });
+</script>
+</body>
+</html>
