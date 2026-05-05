@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Add Documents – NARRA MUNICIPAL HEALTH OFFICE Services Portal</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header class="site-header">
+  <nav class="navbar">
+    <a href="index.html" class="navbar-brand">
+      <span class="logo-icon">🏥</span>
+      <span>NARRA MUNICIPAL HEALTH OFFICE</span>
+    </a>
+    <ul class="navbar-nav">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="status.html">Track Application</a></li>
+      <li><a href="update-documents.html" class="active">Upload Documents</a></li>
+      <li><a href="admin/login.html">Admin</a></li>
+    </ul>
+  </nav>
+</header>
+
+<!-- ── Page Title ── -->
+<section class="page-hero">
+  <h1>Upload Additional Documents</h1>
+  <p>Add documents that were scheduled after your initial application (e.g., training proofs, lab results).</p>
+</section>
+
+<main class="container" style="padding-top: 2rem; padding-bottom: 2rem;">
+
+  <!-- Step 1: Lookup Application -->
+  <section id="lookup-section" class="card">
+    <div class="card-body">
+      <h2>Step 1: Find Your Application</h2>
+      <p>Enter your reference number to access your application.</p>
+
+      <form id="lookup-form">
+        <div class="form-group">
+          <label for="reference-number">Reference Number</label>
+          <input 
+            type="text" 
+            id="reference-number" 
+            class="form-control"
+            placeholder="e.g., RHU-20260505-0001"
+            required
+          />
+          <small class="form-hint">You received this when you submitted your application.</small>
+        </div>
+        <button type="submit" class="btn btn-primary">Find Application</button>
+      </form>
+
+      <div id="lookup-error" class="alert alert-danger" style="display: none; margin-top: 1rem;"></div>
+      <div id="lookup-loading" class="spinner" style="display: none; margin-top: 1rem;"></div>
+    </div>
+  </section>
+
+  <!-- Step 2: Display Application Info & Pending Documents -->
+  <section id="application-info-section" style="display: none;">
+    <div class="card" style="margin-top: 1rem;">
+      <div class="card-body">
+        <h2>Application Information</h2>
+
+        <div class="info-grid">
+          <div>
+            <strong>Reference Number:</strong>
+            <p id="app-ref-number"></p>
+          </div>
+          <div>
+            <strong>Service Type:</strong>
+            <p id="app-service-type"></p>
+          </div>
+          <div>
+            <strong>Applicant Name:</strong>
+            <p id="app-applicant-name"></p>
+          </div>
+          <div>
+            <strong>Current Status:</strong>
+            <p id="app-status"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pending Documents -->
+    <div class="card" style="margin-top: 1rem;">
+      <div class="card-body">
+        <h2>Pending Documents to Upload</h2>
+        <p id="pending-docs-intro">The following documents are needed to complete your application:</p>
+
+        <form id="upload-form">
+          <div id="pending-documents-list"></div>
+
+          <div style="margin-top: 2rem;">
+            <button type="submit" class="btn btn-primary" id="upload-submit-btn">Upload Documents</button>
+            <button type="button" class="btn btn-outline" id="lookup-again-btn" style="margin-left: 0.5rem;">Look Up Another Application</button>
+          </div>
+        </form>
+
+        <div id="upload-error" class="alert alert-danger" style="display: none; margin-top: 1rem;"></div>
+        <div id="upload-success" class="alert alert-success" style="display: none; margin-top: 1rem;"></div>
+      </div>
+    </div>
+
+    <!-- Uploaded Files -->
+    <div class="card" id="uploaded-files-section" style="display: none; margin-top: 1rem;">
+      <div class="card-body">
+        <h2>Already Uploaded Files</h2>
+        <div id="uploaded-files-list"></div>
+      </div>
+    </div>
+
+    <!-- Feedback Section -->
+    <div class="card" id="feedback-section" style="display: none; margin-top: 1rem;">
+      <div class="card-body">
+        <h2>Messages from NARRA MHO</h2>
+        <div id="feedback-list"></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ── Footer ── -->
+<footer class="site-footer">
+  <p>&copy; 2026 NARRA MUNICIPAL HEALTH OFFICE. All rights reserved.</p>
+</footer>
+
+<script type="module">
+  import { fetchByReferenceNumber, uploadFile } from './js/db.js';
+  import { getApplicationTypeById } from './js/data.js';
+  import { fileIcon, formatFileSize } from './js/utils.js';
+
+  const lookupForm = document.getElementById('lookup-form');
+  const referenceInput = document.getElementById('reference-number');
+  const lookupError = document.getElementById('lookup-error');
+  const lookupLoading = document.getElementById('lookup-loading');
+  const appInfoSection = document.getElementById('application-info-section');
+  const uploadForm = document.getElementById('upload-form');
+  const uploadError = document.getElementById('upload-error');
+  const uploadSuccess = document.getElementById('upload-success');
+
+  let currentApplication = null;
+  let pendingFilesByName = {}; // Track which files are pending
+  const selectedFilesByField = {};
+
+  // ── Lookup Application ──
+  lookupForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    lookupError.style.display = 'none';
+    lookupLoading.style.display = 'block';
+
+    try {
+      const refNum = referenceInput.value.trim();
+      const { data, error } = await fetchByReferenceNumber(refNum);
+
+      if (error || !data) {
+        throw new Error('Application not found. Please check your reference number.');
+      }
+
+      currentApplication = data;
+      displayApplicationInfo();
+      lookupForm.style.display = 'none';
+    } catch (err) {
+      lookupError.textContent = err.message || 'An error occurred.';
+      lookupError.style.display = 'block';
+    } finally {
+      lookupLoading.style.display = 'none';
+    }
+  });
+
+  // ── Display Application Info ──
+  function displayApplicationInfo() {
+    const serviceType = getApplicationTypeById(currentApplication.application_type);
+    
+    document.getElementById('app-ref-number').textContent = currentApplication.reference_number;
+    document.getElementById('app-service-type').textContent = serviceType?.name || currentApplication.application_type;
+    document.getElementById('app-applicant-name').textContent = currentApplication.applicant_name;
+    document.getElementById('app-status').innerHTML = `<span class="badge ${getBadgeClass(currentApplication.status)}">${formatStatus(currentApplication.status)}</span>`;
+
+    renderPendingDocuments(serviceType);
+    renderUploadedFiles();
+    renderFeedback();
+
+    appInfoSection.style.display = 'block';
+    document.querySelector('main').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  // ── Render Pending Documents ──
+  function renderPendingDocuments(serviceType) {
+    if (!serviceType || !serviceType.files) {
+      document.getElementById('pending-documents-list').innerHTML = '<p>No documents pending.</p>';
+      return;
+    }
+
+    const uploadedNames = (currentApplication.files || []).map(f => f.file_name || '');
+    pendingFilesByName = {};
+
+    Object.keys(selectedFilesByField).forEach(key => {
+      delete selectedFilesByField[key];
+    });
+
+    // Identify pending files - documents that are required but not yet uploaded
+    const pendingFiles = serviceType.files.filter(file => {
+      // For these special files, they're typically uploaded AFTER payment/training
+      const isTrainingOrLabFile = ['food_handlers_training', 'lab_results', 'hiv_seminar', 'deworming'].includes(file.name);
+      const isUploaded = uploadedNames.some(name => name.toLowerCase().includes(file.name));
+      
+      return isTrainingOrLabFile && !isUploaded;
+    });
+
+    if (pendingFiles.length === 0) {
+      document.getElementById('pending-docs-intro').textContent = 'All documents have been uploaded!';
+      document.getElementById('pending-documents-list').innerHTML = '<div class="alert alert-success">Your application is complete. Thank you!</div>';
+      document.getElementById('upload-submit-btn').disabled = true;
+      return;
+    }
+
+    let html = '<div class="file-upload-list">';
+    pendingFiles.forEach(file => {
+      const fileInputId = `file-${file.name}`;
+      pendingFilesByName[file.name] = file;
+      
+      html += `
+        <div class="file-upload-item">
+          <label for="${fileInputId}">
+            <strong>${file.label}</strong>
+            ${file.note ? `<p class="note">${file.note}</p>` : ''}
+          </label>
+          <div class="file-upload-area">
+            <div class="upload-icon">📎</div>
+            <p><strong>Click to choose file</strong> or drag and drop</p>
+            <input 
+              type="file" 
+              id="${fileInputId}" 
+              name="${file.name}"
+              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+              multiple
+            />
+          </div>
+          <div class="file-list" id="selected-${fileInputId}"></div>
+          <small id="${fileInputId}-progress" class="progress-text"></small>
+        </div>
+      `;
+    });
+    html += '</div>';
+
+    document.getElementById('pending-documents-list').innerHTML = html;
+    pendingFiles.forEach(file => setupPendingFileInput(file.name));
+  }
+
+  function setupPendingFileInput(fieldName) {
+    const input = document.getElementById(`file-${fieldName}`);
+    if (!input) return;
+
+    const area = input.closest('.file-upload-area');
+    selectedFilesByField[fieldName] = [];
+
+    input.addEventListener('change', () => {
+      appendSelectedFiles(fieldName, Array.from(input.files || []));
+      syncInputFiles(fieldName);
+      renderSelectedFileList(fieldName);
+      input.value = '';
+    });
+
+    if (!area) return;
+
+    area.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      area.classList.add('dragover');
+    });
+
+    area.addEventListener('dragleave', () => {
+      area.classList.remove('dragover');
+    });
+
+    area.addEventListener('drop', (e) => {
+      e.preventDefault();
+      area.classList.remove('dragover');
+
+      if (!e.dataTransfer || !e.dataTransfer.files || e.dataTransfer.files.length === 0) return;
+
+      appendSelectedFiles(fieldName, Array.from(e.dataTransfer.files));
+      syncInputFiles(fieldName);
+      renderSelectedFileList(fieldName);
+    });
+  }
+
+  function appendSelectedFiles(fieldName, files) {
+    selectedFilesByField[fieldName] = selectedFilesByField[fieldName] || [];
+
+    files.forEach(file => {
+      if (!file || file.size === 0) return;
+      const duplicate = selectedFilesByField[fieldName].some(existing =>
+        existing.name === file.name &&
+        existing.size === file.size &&
+        existing.lastModified === file.lastModified
+      );
+      if (!duplicate) {
+        selectedFilesByField[fieldName].push(file);
+      }
+    });
+  }
+
+  function syncInputFiles(fieldName) {
+    const input = document.getElementById(`file-${fieldName}`);
+    if (!input) return;
+
+    const dt = new DataTransfer();
+    (selectedFilesByField[fieldName] || []).forEach(file => dt.items.add(file));
+    input.files = dt.files;
+  }
+
+  function renderSelectedFileList(fieldName) {
+    const listContainer = document.getElementById(`selected-file-${fieldName}`);
+    if (!listContainer) return;
+
+    const files = selectedFilesByField[fieldName] || [];
+    listContainer.innerHTML = '';
+
+    files.forEach((file, idx) => {
+      const item = document.createElement('div');
+      item.className = 'file-item';
+      item.innerHTML = `
+        <span class="file-icon">${fileIcon(file.name)}</span>
+        <span class="file-name">${file.name}</span>
+        <span class="file-size">${formatFileSize(file.size)}</span>
+        <button class="file-remove" type="button" data-field="${fieldName}" data-idx="${idx}" title="Remove file">✕</button>
+      `;
+      listContainer.appendChild(item);
+    });
+
+    listContainer.querySelectorAll('.file-remove').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const removeIdx = Number(btn.dataset.idx);
+        selectedFilesByField[fieldName].splice(removeIdx, 1);
+        syncInputFiles(fieldName);
+        renderSelectedFileList(fieldName);
+      });
+    });
+  }
+
+  // ── Render Uploaded Files ──
+  function renderUploadedFiles() {
+    const files = currentApplication.files || [];
+    if (files.length === 0) return;
+
+    const uploadedSection = document.getElementById('uploaded-files-section');
+    let html = '<ul class="file-list">';
+    
+    files.forEach(file => {
+      html += `
+        <li>
+          <a href="${file.file_url}" target="_blank" rel="noopener noreferrer">
+            📄 ${file.file_name}
+          </a>
+        </li>
+      `;
+    });
+    
+    html += '</ul>';
+    document.getElementById('uploaded-files-list').innerHTML = html;
+    uploadedSection.style.display = 'block';
+  }
+
+  // ── Render Feedback ──
+  function renderFeedback() {
+    const feedback = currentApplication.feedback || [];
+    if (feedback.length === 0) return;
+
+    const feedbackSection = document.getElementById('feedback-section');
+    let html = '<div class="feedback-list">';
+    
+    feedback.forEach(msg => {
+      html += `
+        <div class="feedback-item">
+          <p>${msg.message}</p>
+          <small>${new Date(msg.created_at).toLocaleString()}</small>
+        </div>
+      `;
+    });
+    
+    html += '</div>';
+    document.getElementById('feedback-list').innerHTML = html;
+    feedbackSection.style.display = 'block';
+  }
+
+  // ── Upload Documents ──
+  uploadForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    uploadError.style.display = 'none';
+    uploadSuccess.style.display = 'none';
+
+    const uploadQueue = Object.entries(selectedFilesByField)
+      .flatMap(([fieldName, files]) => (files || []).map(file => ({ fieldName, file })));
+
+    if (uploadQueue.length === 0) {
+      uploadError.textContent = 'Please select at least one file to upload.';
+      uploadError.style.display = 'block';
+      return;
+    }
+
+    try {
+      let uploadCount = 0;
+      let failedCount = 0;
+
+      for (const { fieldName, file } of uploadQueue) {
+
+        // Upload with progress feedback
+        const progressId = `file-${fieldName}-progress`;
+        const progressElem = document.getElementById(progressId);
+
+        const { error: upErr } = await uploadFile(currentApplication.id, file, (progress) => {
+          if (progressElem) {
+            progressElem.textContent = `Uploading: ${progress}%`;
+          }
+        });
+
+        if (upErr) {
+          failedCount++;
+          if (progressElem) {
+            progressElem.textContent = `✗ Failed: ${upErr.message || 'Upload error'}`;
+          }
+          continue;
+        }
+
+        uploadCount++;
+        if (progressElem) {
+          progressElem.textContent = `✓ Uploaded (${uploadCount}/${uploadQueue.length})`;
+        }
+      }
+
+      if (uploadCount > 0) {
+        uploadSuccess.innerHTML = `<strong>Success!</strong> ${uploadCount} document(s) uploaded. You can return anytime to upload remaining documents.`;
+        uploadSuccess.style.display = 'block';
+      }
+
+      if (failedCount > 0) {
+        uploadError.textContent = `${failedCount} file(s) failed to upload. Please try again for failed items.`;
+        uploadError.style.display = 'block';
+      }
+
+      if (uploadCount === 0 && failedCount > 0) {
+        return;
+      }
+
+      // Refresh application data
+      setTimeout(async () => {
+        const { data, error } = await fetchByReferenceNumber(currentApplication.reference_number);
+        if (data) {
+          currentApplication = data;
+          renderPendingDocuments(getApplicationTypeById(currentApplication.application_type));
+          renderUploadedFiles();
+        }
+      }, 1000);
+    } catch (err) {
+      uploadError.textContent = err.message || 'An error occurred during upload.';
+      uploadError.style.display = 'block';
+    }
+  });
+
+  // ── Look Up Another Application ──
+  document.getElementById('lookup-again-btn').addEventListener('click', () => {
+    appInfoSection.style.display = 'none';
+    lookupForm.style.display = 'block';
+    referenceInput.value = '';
+    referenceInput.focus();
+    currentApplication = null;
+    pendingFilesByName = {};
+  });
+
+  // ── Utility Functions ──
+  function formatStatus(status) {
+    const statusMap = {
+      'pending': 'Pending',
+      'for_payment': 'Awaiting Payment',
+      'approved': 'Approved',
+      'rejected': 'Rejected',
+      'needs_revision': 'Needs Revision'
+    };
+    return statusMap[status] || status;
+  }
+
+  function getBadgeClass(status) {
+    const classMap = {
+      pending: 'badge-pending',
+      for_payment: 'badge-payment',
+      approved: 'badge-approved',
+      rejected: 'badge-rejected',
+      needs_revision: 'badge-revision'
+    };
+    return classMap[status] || 'badge-pending';
+  }
+</script>
+
+<style>
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .info-grid div {
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 0.5rem;
+  }
+
+  .file-upload-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .file-upload-item {
+    padding: 1rem;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+    background: var(--gray-100);
+  }
+
+  .file-upload-item label {
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+
+  .file-upload-item .note {
+    font-size: 0.875rem;
+    color: var(--gray-600);
+    margin-top: 0.25rem;
+  }
+
+  .file-upload-item .file-upload-area {
+    margin-top: 0.5rem;
+  }
+
+  .progress-text {
+    display: block;
+    margin-top: 0.5rem;
+    color: var(--gray-600);
+    font-size: .82rem;
+  }
+
+  .file-list {
+    list-style: none;
+    padding: 0;
+  }
+
+  .file-list li {
+    padding: 0.75rem;
+    background: var(--gray-100);
+    border-radius: var(--radius);
+    margin-bottom: 0.5rem;
+  }
+
+  .file-list a {
+    color: var(--primary);
+    text-decoration: none;
+  }
+
+  .file-list a:hover {
+    text-decoration: underline;
+  }
+
+  .feedback-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .feedback-item {
+    padding: 1rem;
+    background: var(--primary-light);
+    border-left: 4px solid var(--primary);
+    border-radius: var(--radius);
+  }
+
+  .feedback-item p {
+    margin: 0 0 0.5rem 0;
+  }
+
+  .feedback-item small {
+    color: var(--gray-600);
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 30px;
+    height: 30px;
+    border: 3px solid var(--gray-200);
+    border-top: 3px solid var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+</style>
+
+</body>
+</html>

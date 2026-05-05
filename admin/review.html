@@ -128,6 +128,16 @@
               </div>
             </div>
 
+            <div class="card" style="margin-top:1.25rem;border:1px solid rgba(220,53,69,.25);">
+              <div class="card-header" style="color:var(--danger);">🗑️ Danger Zone</div>
+              <div class="card-body">
+                <p style="font-size:.88rem;color:var(--gray-600);margin-bottom:.75rem;">
+                  Permanently delete this application and all related data.
+                </p>
+                <button class="btn btn-danger btn-block" id="btn-delete-application">Delete Application</button>
+              </div>
+            </div>
+
           </div>
         </div><!-- /.grid -->
 
@@ -156,7 +166,7 @@
 
 <script type="module">
 import { getSupabaseClient } from '../js/supabase.js';
-import { fetchApplicationById, updateApplicationStatus, addFeedback } from '../js/db.js';
+import { fetchApplicationById, updateApplicationStatus, addFeedback, deleteApplicationFile, deleteApplication } from '../js/db.js';
 import { getApplicationTypeName } from '../js/data.js';
 import { getQueryParam, escapeHtml, formatDateTime, showToast } from '../js/utils.js';
 
@@ -253,12 +263,20 @@ function renderApplication(app) {
     filesEl.innerHTML = files.map(f => {
       const name = f.file_name || (f.file && f.file.name) || 'Document';
       const url  = f.file_url  || f.url  || null;
+      const encodedFileData = encodeURIComponent(JSON.stringify({
+        id: f.id || null,
+        file_name: f.file_name || null,
+        file_url: f.file_url || f.url || null,
+      }));
       return `<div class="file-item" style="margin-bottom:.5rem;">
         <span class="file-icon">📄</span>
         <span class="file-name">${escapeHtml(name)}</span>
         ${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline" style="flex-shrink:0;">View</a>` : ''}
+        <button class="btn btn-sm btn-danger btn-delete-file" data-file="${encodedFileData}" style="flex-shrink:0;">Delete</button>
       </div>`;
     }).join('');
+  } else {
+    filesEl.innerHTML = `<p style="color:var(--gray-500);font-size:.9rem;">No documents uploaded.</p>`;
   }
 
   // Feedback history
@@ -328,6 +346,62 @@ document.getElementById('btn-add-feedback').addEventListener('click', async () =
   renderFeedback(currentApp.feedback);
   document.getElementById('feedback-input').value = '';
   showToast('Feedback sent successfully.', 'success');
+});
+
+// ── Delete file ──────────────────────────────────────────────────────────────
+document.getElementById('uploaded-files').addEventListener('click', event => {
+  const btn = event.target.closest('.btn-delete-file');
+  if (!btn || !currentApp) return;
+
+  let fileRecord;
+  try {
+    fileRecord = JSON.parse(decodeURIComponent(btn.dataset.file || ''));
+  } catch {
+    showToast('Could not read file information.', 'danger');
+    return;
+  }
+
+  const fileName = fileRecord.file_name || 'this file';
+  openModal(
+    'Delete File',
+    `Delete <strong>${escapeHtml(fileName)}</strong> from this application?<br><br>This action cannot be undone.`,
+    async () => {
+      const { error } = await deleteApplicationFile(currentApp.id, fileRecord);
+      if (error) {
+        showToast('Failed to delete file.', 'danger');
+        return;
+      }
+
+      showToast('File deleted successfully.', 'success');
+      const { data, error: refreshError } = await fetchApplicationById(currentApp.id);
+      if (!refreshError && data) {
+        currentApp = data;
+        renderApplication(currentApp);
+      }
+    }
+  );
+});
+
+// ── Delete application ───────────────────────────────────────────────────────
+document.getElementById('btn-delete-application').addEventListener('click', () => {
+  if (!currentApp) return;
+
+  openModal(
+    'Delete Application',
+    `Delete application <strong>${escapeHtml(currentApp.reference_number || currentApp.id)}</strong> and all related records?<br><br>This action cannot be undone.`,
+    async () => {
+      const { error } = await deleteApplication(currentApp.id);
+      if (error) {
+        showToast('Failed to delete application.', 'danger');
+        return;
+      }
+
+      showToast('Application deleted successfully.', 'success');
+      setTimeout(() => {
+        window.location.href = 'applications.html';
+      }, 600);
+    }
+  );
 });
 
 // ── Confirm modal ─────────────────────────────────────────────────────────────

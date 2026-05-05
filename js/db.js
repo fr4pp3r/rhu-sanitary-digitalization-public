@@ -226,6 +226,136 @@ async function addFeedback(applicationId, message) {
   return { data: fbRow, error: null };
 }
 
+function extractStoragePathFromPublicUrl(publicUrl) {
+  if (!publicUrl || typeof publicUrl !== 'string') return null;
+
+  const marker = '/storage/v1/object/public/applications/';
+  const idx = publicUrl.indexOf(marker);
+  if (idx === -1) return null;
+
+  const encodedPath = publicUrl.slice(idx + marker.length);
+  try {
+    return decodeURIComponent(encodedPath);
+  } catch {
+    return encodedPath;
+  }
+}
+
+/**
+ * Delete a single uploaded file from an application.
+ *
+ * @param {string} applicationId
+ * @param {{id?:string, file_name?:string, file_url?:string}} fileRecord
+ * @returns {Promise<{data: object|null, error: object|null}>}
+ */
+async function deleteApplicationFile(applicationId, fileRecord) {
+  const sb = getSupabaseClient();
+
+  if (sb) {
+    const fileUrl = fileRecord?.file_url || null;
+    const filePath = extractStoragePathFromPublicUrl(fileUrl);
+
+    if (filePath) {
+      const { error: storageErr } = await sb.storage.from('applications').remove([filePath]);
+      if (storageErr) {
+        console.warn('Storage file remove warning:', storageErr.message);
+      }
+    }
+
+    if (fileRecord?.id) {
+      const { data, error } = await sb
+        .from('uploaded_files')
+        .delete()
+        .eq('id', fileRecord.id)
+        .select()
+        .single();
+      return { data, error };
+    }
+
+    const query = sb
+      .from('uploaded_files')
+      .delete()
+      .eq('application_id', applicationId)
+      .eq('file_name', fileRecord?.file_name || '');
+
+    if (fileUrl) query.eq('file_url', fileUrl);
+
+    const { data, error } = await query.select();
+    const row = Array.isArray(data) ? data[0] || null : data || null;
+    return { data: row, error };
+  }
+
+  // Demo path
+  const rows = _loadStore();
+  const app = rows.find(r => r.id === applicationId);
+  if (!app) return { data: null, error: { message: 'Application not found.' } };
+
+  app.files = app.files || [];
+  const idx = app.files.findIndex(f =>
+    (fileRecord?.file_url && f.file_url === fileRecord.file_url) ||
+    (fileRecord?.file_name && f.file_name === fileRecord.file_name)
+  );
+
+  if (idx === -1) return { data: null, error: { message: 'File not found.' } };
+
+  const [removed] = app.files.splice(idx, 1);
+  _saveStore(rows);
+  return { data: removed, error: null };
+}
+
+/**
+ * Delete an entire application and related records.
+ *
+ * @param {string} applicationId
+ * @returns {Promise<{data: object|null, error: object|null}>}
+ */
+async function deleteApplication(applicationId) {
+  const sb = getSupabaseClient();
+
+  if (sb) {
+    const { data: fileRows, error: fileFetchErr } = await sb
+      .from('uploaded_files')
+      .select('id, file_url')
+      .eq('application_id', applicationId);
+
+    if (fileFetchErr) return { data: null, error: fileFetchErr };
+
+    const storagePaths = (fileRows || [])
+      .map(f => extractStoragePathFromPublicUrl(f.file_url))
+      .filter(Boolean);
+
+    if (storagePaths.length > 0) {
+      const { error: storageErr } = await sb.storage.from('applications').remove(storagePaths);
+      if (storageErr) {
+        console.warn('Storage cleanup warning:', storageErr.message);
+      }
+    }
+
+    const deleteOps = [
+      sb.from('uploaded_files').delete().eq('application_id', applicationId),
+      sb.from('application_details').delete().eq('application_id', applicationId),
+      sb.from('feedback').delete().eq('application_id', applicationId),
+      sb.from('applications').delete().eq('id', applicationId).select().single(),
+    ];
+
+    const [upFilesRes, detailsRes, feedbackRes, appRes] = await Promise.all(deleteOps);
+
+    const firstErr = upFilesRes.error || detailsRes.error || feedbackRes.error || appRes.error;
+    if (firstErr) return { data: null, error: firstErr };
+
+    return { data: appRes.data || { id: applicationId }, error: null };
+  }
+
+  // Demo path
+  const rows = _loadStore();
+  const idx = rows.findIndex(r => r.id === applicationId);
+  if (idx === -1) return { data: null, error: { message: 'Application not found.' } };
+
+  const [removed] = rows.splice(idx, 1);
+  _saveStore(rows);
+  return { data: removed, error: null };
+}
+
 // ─── File uploads ─────────────────────────────────────────────────────────────
 
 /**
@@ -241,7 +371,10 @@ async function uploadFile(applicationId, file, onProgress) {
   const sb = getSupabaseClient();
 
   if (sb) {
-    const path = `${applicationId}/${Date.now()}-${file.name}`;
+    const uniquePart = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const path = `${applicationId}/${uniquePart}-${file.name}`;
     const { data, error } = await sb.storage
       .from('applications')
       .upload(path, file, { cacheControl: '3600', upsert: false });
@@ -338,6 +471,8 @@ export {
   fetchApplicationById,
   updateApplicationStatus,
   addFeedback,
+  deleteApplicationFile,
+  deleteApplication,
   uploadFile,
   fetchStats,
 };
