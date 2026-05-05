@@ -181,6 +181,18 @@ const DEFAULT_APPLICATION_TYPES = [
     name: 'Issuance of Certificate of Potability',
     icon: '💧',
     description: 'Service for requesting certification that a water source is potable.',
+    fee: 170,
+    requirements: [
+      'Latest three (3) months result / certificate of analysis of microbiological / bacteriological water test (Original & photo copy).',
+      'For water refilling station, semi-annual result / certificate of analysis of physical-chemical tests (Original & photocopy). All other establishment, annual result / certificate of analysis of physical-chemical tests (Original & photocopy).',
+    ],
+    workflow: [
+      'Client fills up basic information along with contact information.',
+      'Client uploads the required files.',
+      'After verification, client can proceed with payment.',
+      'Client uploads the receipt after payment.',
+      'Once certificate is ready, client comes to the main office to claim the certificate.',
+    ],
     fields: [
       { name: 'water_source_name', label: 'Water Source / Facility Name', type: 'text',   required: true },
       { name: 'source_location',   label: 'Location',                     type: 'text',   required: true },
@@ -189,7 +201,20 @@ const DEFAULT_APPLICATION_TYPES = [
         options: ['Refilling Station', 'Deep Well', 'Spring', 'Piped Water', 'Other'] },
       { name: 'sample_date',       label: 'Date of Water Sampling',       type: 'date',   required: true },
     ],
-    files: [],
+    files: [
+      {
+        name: 'microbiological_water_test',
+        label: 'Latest three (3) months result / certificate of analysis of microbiological / bacteriological water test',
+        required: true,
+        note: 'Original and photocopy required.',
+      },
+      {
+        name: 'physical_chemical_water_test',
+        label: 'Result / certificate of analysis of physical-chemical tests',
+        required: true,
+        note: 'For water refilling station, semi-annual result is required. All other establishment requires annual result. Original and photocopy required.',
+      },
+    ],
   },
   {
     id: 'health_card_food_handlers_yellow',
