@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Services – NARRA MUNICIPAL HEALTH OFFICE Admin</title>
+  <link rel="stylesheet" href="../css/styles.css" />
+</head>
+<body>
+
+<div class="admin-layout">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">🏥</div>
+      <div>
+        <div style="font-size:.9rem;">NARRA MHO Admin</div>
+        <div style="font-size:.72rem;opacity:.7;">Services Portal</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html">
+        <span class="nav-icon">📊</span>
+        <span class="nav-label">Dashboard</span>
+      </a>
+      <a href="applications.html">
+        <span class="nav-icon">📋</span>
+        <span class="nav-label">Applications</span>
+      </a>
+      <a href="services.html" class="active">
+        <span class="nav-icon">🛠️</span>
+        <span class="nav-label">Services</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="btn btn-outline btn-sm btn-block" id="btn-logout"
+              style="color:#fff;border-color:rgba(255,255,255,.5);">
+        Sign Out
+      </button>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <div class="admin-main">
+    <div class="admin-topbar">
+      <h1>Services</h1>
+      <span id="admin-email" style="font-size:.88rem; color:var(--gray-600);"></span>
+    </div>
+
+    <div class="admin-content">
+      <div class="stat-grid" id="service-stats">
+        <div class="stat-card">
+          <div class="stat-icon blue">🛠️</div>
+          <div class="stat-info">
+            <div class="stat-num" id="stat-services">—</div>
+            <div class="stat-label">Services Offered</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green">💳</div>
+          <div class="stat-info">
+            <div class="stat-num" id="stat-average-fee">—</div>
+            <div class="stat-label">Average Fee</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon yellow">📄</div>
+          <div class="stat-info">
+            <div class="stat-num" id="stat-requirements">—</div>
+            <div class="stat-label">Total Requirements</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon red">⚙️</div>
+          <div class="stat-info">
+            <div class="stat-num" id="stat-workflow">—</div>
+            <div class="stat-label">Services with Steps</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="service-admin-grid">
+        <div class="card">
+          <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;">
+            <span>Available Services</span>
+            <button class="btn btn-outline btn-sm" id="btn-reset-all">Restore All Defaults</button>
+          </div>
+          <div class="card-body">
+            <div class="service-list" id="service-list"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">Edit Service</div>
+          <div class="card-body">
+            <div class="editor-toolbar">
+              <div>
+                <h2 id="editor-title">Select a service</h2>
+                <div style="font-size:.85rem;color:var(--gray-600);" id="editor-subtitle">Choose a service from the list to update its fee, requirements, workflow, and details.</div>
+              </div>
+              <button class="btn btn-outline btn-sm" id="btn-reset-current" disabled>Restore This Service</button>
+            </div>
+
+            <form id="service-form" novalidate>
+              <input type="hidden" id="service-id" />
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="service-name">Service Name <span class="required">*</span></label>
+                  <input type="text" id="service-name" class="form-control" required />
+                </div>
+                <div class="form-group">
+                  <label for="service-icon">Icon / Symbol</label>
+                  <input type="text" id="service-icon" class="form-control" placeholder="e.g. 🛠️" />
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="service-description">Description <span class="required">*</span></label>
+                <textarea id="service-description" class="form-control" rows="3" required></textarea>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="service-fee">Service Fee (PHP)</label>
+                  <input type="number" id="service-fee" class="form-control" min="0" step="1" />
+                </div>
+                <div class="form-group">
+                  <label for="service-id-readonly">Service ID</label>
+                  <input type="text" id="service-id-readonly" class="form-control" readonly />
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="service-requirements">Requirements</label>
+                <textarea id="service-requirements" class="form-control" rows="7" placeholder="One requirement per line"></textarea>
+                <div class="json-help">Use one line per requirement. Blank lines are ignored.</div>
+              </div>
+
+              <div class="form-group">
+                <label for="service-workflow">Workflow / Steps</label>
+                <textarea id="service-workflow" class="form-control" rows="7" placeholder="One step per line"></textarea>
+                <div class="json-help">These steps appear in the public application form as the service process overview.</div>
+              </div>
+
+              <div class="form-group">
+                <label for="service-fields">Form Fields JSON</label>
+                <textarea id="service-fields" class="form-control" rows="8" spellcheck="false"></textarea>
+                <div class="json-help">Advanced: edit the application form fields as a JSON array of field objects.</div>
+              </div>
+
+              <div class="form-group">
+                <label for="service-files">Required Files JSON</label>
+                <textarea id="service-files" class="form-control" rows="8" spellcheck="false"></textarea>
+                <div class="json-help">Advanced: edit the uploaded file requirements as a JSON array of file objects.</div>
+              </div>
+
+              <div style="display:flex;justify-content:space-between;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem;">
+                <button type="button" class="btn btn-outline" id="btn-preview">Refresh Preview</button>
+                <div style="display:flex;gap:.75rem;flex-wrap:wrap;">
+                  <button type="button" class="btn btn-outline" id="btn-cancel">Cancel Changes</button>
+                  <button type="submit" class="btn btn-primary" id="btn-save" disabled>Save Changes</button>
+                </div>
+              </div>
+            </form>
+
+            <div class="service-preview" id="service-preview">
+              <div class="preview-empty">Select a service to preview its current details.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast-container" class="toast-container"></div>
+
+<script type="module">
+import { getSupabaseClient } from '../js/supabase.js';
+import {
+  getApplicationTypes,
+  updateApplicationType,
+  resetApplicationType,
+  resetAllApplicationTypes,
+} from '../js/data.js';
+import { escapeHtml, showToast } from '../js/utils.js';
+
+const form = document.getElementById('service-form');
+const list = document.getElementById('service-list');
+const preview = document.getElementById('service-preview');
+const saveButton = document.getElementById('btn-save');
+const resetCurrentButton = document.getElementById('btn-reset-current');
+const editorTitle = document.getElementById('editor-title');
+const editorSubtitle = document.getElementById('editor-subtitle');
+
+let currentServiceId = null;
+
+const fields = {
+  id: document.getElementById('service-id'),
+  idReadonly: document.getElementById('service-id-readonly'),
+  name: document.getElementById('service-name'),
+  icon: document.getElementById('service-icon'),
+  description: document.getElementById('service-description'),
+  fee: document.getElementById('service-fee'),
+  requirements: document.getElementById('service-requirements'),
+  workflow: document.getElementById('service-workflow'),
+  jsonFields: document.getElementById('service-fields'),
+  jsonFiles: document.getElementById('service-files'),
+};
+
+// ── Auth guard ────────────────────────────────────────────────────────────────
+(async () => {
+  const sb = getSupabaseClient();
+  if (sb) {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { window.location.href = 'login.html'; return; }
+    document.getElementById('admin-email').textContent = session.user.email;
+  } else {
+    const demo = sessionStorage.getItem('rhu_admin_demo');
+    if (!demo) { window.location.href = 'login.html'; return; }
+    try { document.getElementById('admin-email').textContent = JSON.parse(demo).email + ' (demo)'; } catch { /* ignore */ }
+  }
+
+  renderPage();
+  attachFormEvents();
+})();
+
+function renderPage() {
+  const services = getApplicationTypes();
+  renderStats(services);
+  renderServiceList(services);
+
+  if (!currentServiceId && services.length > 0) {
+    currentServiceId = services[0].id;
+  }
+
+  if (currentServiceId) {
+    loadServiceIntoForm(services.find(service => service.id === currentServiceId) || services[0]);
+  }
+}
+
+function renderStats(services) {
+  const totalServices = services.length;
+  const totalRequirements = services.reduce((sum, service) => sum + (service.requirements || []).length, 0);
+  const averageFee = totalServices
+    ? Math.round(services.reduce((sum, service) => sum + (Number(service.fee) || 0), 0) / totalServices)
+    : 0;
+  const servicesWithWorkflow = services.filter(service => (service.workflow || []).length > 0).length;
+
+  document.getElementById('stat-services').textContent = totalServices;
+  document.getElementById('stat-average-fee').textContent = `PHP ${averageFee.toLocaleString('en-PH')}`;
+  document.getElementById('stat-requirements').textContent = totalRequirements;
+  document.getElementById('stat-workflow').textContent = servicesWithWorkflow;
+}
+
+function renderServiceList(services) {
+  if (!services.length) {
+    list.innerHTML = '<div class="alert alert-warning">No services available.</div>';
+    return;
+  }
+
+  list.innerHTML = services.map(service => `
+    <button type="button" class="service-list-item${service.id === currentServiceId ? ' active' : ''}" data-service-id="${escapeHtml(service.id)}">
+      <div class="service-list-item-title">
+        <div>
+          <strong>${escapeHtml(service.name)}</strong>
+          <div style="font-size:.82rem;color:var(--gray-600);margin-top:.15rem;">${escapeHtml(service.description)}</div>
+        </div>
+        <span>${escapeHtml(service.icon || '🛠️')}</span>
+      </div>
+      <div class="service-list-item-meta">
+        <span>${feeLabel(service.fee)}</span>
+        <span>${(service.requirements || []).length} requirements</span>
+        <span>${(service.workflow || []).length} steps</span>
+      </div>
+    </button>
+  `).join('');
+}
+
+function feeLabel(value) {
+  const fee = Number(value) || 0;
+  return `PHP ${fee.toLocaleString('en-PH')}`;
+}
+
+function loadServiceIntoForm(service) {
+  if (!service) return;
+
+  currentServiceId = service.id;
+  fields.id.value = service.id;
+  fields.idReadonly.value = service.id;
+  fields.name.value = service.name || '';
+  fields.icon.value = service.icon || '';
+  fields.description.value = service.description || '';
+  fields.fee.value = Number(service.fee) || 0;
+  fields.requirements.value = (service.requirements || []).join('\n');
+  fields.workflow.value = (service.workflow || []).join('\n');
+  fields.jsonFields.value = JSON.stringify(service.fields || [], null, 2);
+  fields.jsonFiles.value = JSON.stringify(service.files || [], null, 2);
+
+  editorTitle.textContent = service.name;
+  editorSubtitle.textContent = 'Update the service definition below, then save to publish the changes to the public application form.';
+  saveButton.disabled = false;
+  resetCurrentButton.disabled = false;
+
+  updatePreview();
+  renderServiceList(getApplicationTypes());
+}
+
+function parseLines(value) {
+  return String(value || '')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
+}
+
+function parseJsonArray(text, label) {
+  const raw = String(text || '').trim();
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      throw new Error(`${label} must be a JSON array.`);
+    }
+    return parsed;
+  } catch (error) {
+    showToast(`${label} must be valid JSON array data.`, 'danger');
+    return null;
+  }
+}
+
+function buildPreviewDraft() {
+  const feeValue = fields.fee.value === '' ? 0 : Number(fields.fee.value);
+
+  return {
+    name: fields.name.value.trim(),
+    icon: fields.icon.value.trim(),
+    description: fields.description.value.trim(),
+    fee: Number.isNaN(feeValue) ? 0 : feeValue,
+    requirements: parseLines(fields.requirements.value),
+    workflow: parseLines(fields.workflow.value),
+  };
+}
+
+function buildServiceDraft() {
+  const previewDraft = buildPreviewDraft();
+  const jsonFields = parseJsonArray(fields.jsonFields.value, 'Form Fields JSON');
+  if (jsonFields === null) return null;
+  const jsonFiles = parseJsonArray(fields.jsonFiles.value, 'Required Files JSON');
+  if (jsonFiles === null) return null;
+
+  const feeText = fields.fee.value.trim();
+  const feeValue = feeText === '' ? 0 : Number(feeText);
+
+  if (Number.isNaN(feeValue) || feeValue < 0) {
+    showToast('Service fee must be a non-negative number.', 'danger');
+    return null;
+  }
+
+  return {
+    id: fields.id.value,
+    ...previewDraft,
+    fee: feeValue,
+    fields: jsonFields,
+    files: jsonFiles,
+  };
+}
+
+function updatePreview() {
+  const draft = buildPreviewDraft();
+
+  const feeHtml = draft.fee > 0 ? feeLabel(draft.fee) : 'Free';
+  const requirementsHtml = draft.requirements.length
+    ? `<ul>${draft.requirements.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
+    : '<div class="preview-empty">No requirements configured.</div>';
+  const workflowHtml = draft.workflow.length
+    ? `<ol>${draft.workflow.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ol>`
+    : '<div class="preview-empty">No workflow steps configured.</div>';
+
+  preview.innerHTML = `
+    <h3>${escapeHtml(draft.icon || '🛠️')} ${escapeHtml(draft.name || 'Untitled Service')}</h3>
+    <div style="color:var(--gray-600);font-size:.9rem;">${escapeHtml(draft.description || 'No description provided.')}</div>
+    <div class="preview-badges">
+      <span class="badge badge-approved">${escapeHtml(feeHtml)}</span>
+      <span class="badge badge-payment">${draft.requirements.length} requirements</span>
+      <span class="badge badge-revision">${draft.workflow.length} steps</span>
+    </div>
+    <div class="preview-section">
+      <h3 style="font-size:.92rem;">Requirements</h3>
+      ${requirementsHtml}
+    </div>
+    <div class="preview-section">
+      <h3 style="font-size:.92rem;">Workflow / Steps</h3>
+      ${workflowHtml}
+    </div>
+  `;
+}
+
+function attachFormEvents() {
+  list.addEventListener('click', event => {
+    const button = event.target.closest('[data-service-id]');
+    if (!button) return;
+
+    const selectedId = button.getAttribute('data-service-id');
+    const service = getApplicationTypes().find(item => item.id === selectedId);
+    if (service) loadServiceIntoForm(service);
+  });
+
+  form.addEventListener('input', updatePreview);
+
+  form.addEventListener('submit', event => {
+    event.preventDefault();
+    const draft = buildServiceDraft();
+    if (!draft) return;
+    if (!draft.name || !draft.description) {
+      showToast('Service name and description are required.', 'danger');
+      return;
+    }
+
+    updateApplicationType(draft.id, draft);
+    showToast('Service updated successfully.', 'success');
+    renderPage();
+  });
+
+  document.getElementById('btn-preview').addEventListener('click', updatePreview);
+
+  document.getElementById('btn-cancel').addEventListener('click', () => {
+    const services = getApplicationTypes();
+    const service = services.find(item => item.id === currentServiceId) || services[0];
+    if (service) loadServiceIntoForm(service);
+  });
+
+  resetCurrentButton.addEventListener('click', () => {
+    if (!currentServiceId) return;
+    if (!confirm('Restore this service to the default values?')) return;
+    const restored = resetApplicationType(currentServiceId);
+    if (restored) {
+      showToast('Service restored to default values.', 'success');
+      renderPage();
+    }
+  });
+
+  document.getElementById('btn-reset-all').addEventListener('click', () => {
+    if (!confirm('Restore all services to their default values?')) return;
+    resetAllApplicationTypes();
+    currentServiceId = getApplicationTypes()[0]?.id || null;
+    showToast('All services restored to defaults.', 'success');
+    renderPage();
+  });
+}
+
+document.getElementById('btn-logout').addEventListener('click', async () => {
+  const sb = getSupabaseClient();
+  if (sb) await sb.auth.signOut();
+  sessionStorage.removeItem('rhu_admin_demo');
+  window.location.href = 'login.html';
+});
+</script>
+</body>
+</html>

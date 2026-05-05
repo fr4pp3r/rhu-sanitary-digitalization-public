@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Track Application – RHU Sanitary Permit System</title>
+  <title>Track Application – NARRA MUNICIPAL HEALTH OFFICE Services Portal</title>
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
@@ -13,7 +13,7 @@
   <nav class="navbar">
     <a href="index.html" class="navbar-brand">
       <span class="logo-icon">🏥</span>
-      <span>RHU Sanitary Permit System</span>
+      <span>NARRA MUNICIPAL HEALTH OFFICE</span>
     </a>
     <ul class="navbar-nav">
       <li><a href="index.html">Home</a></li>
@@ -54,14 +54,16 @@
 </main>
 
 <footer class="site-footer">
-  <p>&copy; <span id="year"></span> Rural Health Unit. All rights reserved.</p>
+  <p>&copy; <span id="year"></span> NARRA MUNICIPAL HEALTH OFFICE. All rights reserved.</p>
 </footer>
 
 <div id="toast-container" class="toast-container"></div>
 
 <script type="module">
 import { fetchByReferenceNumber } from './js/db.js';
-import { escapeHtml, formatDateTime, getQueryParam, showToast } from './js/utils.js';
+import { uploadFile } from './js/db.js';
+import { getApplicationTypeById, getApplicationTypeName } from './js/data.js';
+import { escapeHtml, formatDateTime, formatFileSize, fileIcon, getQueryParam, showToast } from './js/utils.js';
 
 document.getElementById('year').textContent = new Date().getFullYear();
 
@@ -70,6 +72,8 @@ const input     = document.getElementById('ref-input');
 const resultDiv = document.getElementById('result-area');
 const errDiv    = document.getElementById('ref-input-err');
 const searchBtn = document.getElementById('btn-search');
+let currentApp = null;
+let receiptFile = null;
 
 // Auto-fill from URL param if present
 const preRef = getQueryParam('ref');
@@ -110,14 +114,22 @@ async function doSearch(ref) {
 
 const STATUS_CONFIG = {
   pending:        { label: 'Pending',        class: 'badge-pending',  icon: '⏳', timelineClass: 'active' },
+  for_payment:    { label: 'For Payment',    class: 'badge-payment',  icon: '💳', timelineClass: 'active' },
   approved:       { label: 'Approved',       class: 'badge-approved', icon: '✅', timelineClass: 'done'   },
   rejected:       { label: 'Rejected',       class: 'badge-rejected', icon: '❌', timelineClass: 'done'   },
   needs_revision: { label: 'Needs Revision', class: 'badge-revision', icon: '📝', timelineClass: 'active' },
 };
 
 function renderResult(app) {
+  currentApp = app;
+  receiptFile = null;
   const cfg    = STATUS_CONFIG[app.status] || STATUS_CONFIG.pending;
   const details = app.details || {};
+  const applicationTypeName = getApplicationTypeName(app.application_type);
+  const appType = getApplicationTypeById(app.application_type);
+  const feeText = appType && typeof appType.fee === 'number'
+    ? new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(appType.fee)
+    : '₱570.00';
 
   // Build details rows
   let detailRows = '';
@@ -151,14 +163,15 @@ function renderResult(app) {
   // Timeline (simplified 4-step)
   const steps = [
     { label: 'Submitted',    desc: formatDateTime(app.created_at), done: true },
-    { label: 'Under Review', desc: 'Application is being reviewed by the health officer.', done: ['approved','rejected','needs_revision'].includes(app.status) },
-    { label: app.status === 'needs_revision' ? 'Needs Revision' : (app.status === 'rejected' ? 'Rejected' : 'Approved'),
+    { label: 'Under Review', desc: 'Application is being reviewed by the health officer.', done: ['for_payment','approved','rejected','needs_revision'].includes(app.status) },
+    { label: app.status === 'for_payment' ? 'For Payment' : (app.status === 'needs_revision' ? 'Needs Revision' : (app.status === 'rejected' ? 'Rejected' : 'Approved')),
       desc:  app.status === 'approved'  ? 'Your application has been approved.' :
-             app.status === 'rejected'  ? 'Your application was not approved. Please contact the RHU for details.' :
+             app.status === 'for_payment' ? 'Your application has been verified. Please proceed with payment.' :
+             app.status === 'rejected'  ? 'Your application was not approved. Please contact NARRA MUNICIPAL HEALTH OFFICE for details.' :
              app.status === 'needs_revision' ? 'Please provide additional information or revised documents.' :
              'Awaiting decision.',
-      done: ['approved','rejected','needs_revision'].includes(app.status),
-      active: app.status === 'needs_revision' },
+      done: ['for_payment','approved','rejected','needs_revision'].includes(app.status),
+      active: app.status === 'for_payment' || app.status === 'needs_revision' },
     { label: 'Release',      desc: 'Permit released / ready for pickup.', done: app.status === 'approved' },
   ];
 
@@ -171,6 +184,70 @@ function renderResult(app) {
       </div>
     </div>`).join('');
 
+  let serviceProcessHtml = '';
+  if (appType) {
+    const requirementItems = (appType.requirements || []).map(req => `<li>${escapeHtml(req)}</li>`).join('');
+    const workflowItems = (appType.workflow || []).map(step => `<li>${escapeHtml(step)}</li>`).join('');
+    serviceProcessHtml = `
+      <div class="card" style="margin-bottom:1rem;border:1px solid var(--gray-200);">
+        <div class="card-body">
+          <div style="display:flex;justify-content:space-between;gap:.75rem;flex-wrap:wrap;align-items:flex-start;margin-bottom:1rem;">
+            <div>
+              <div style="font-size:.82rem;color:var(--gray-500);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.2rem;">Service Fee</div>
+              <div style="font-size:1.2rem;font-weight:800;color:var(--primary);">${escapeHtml(feeText)}</div>
+            </div>
+            <div class="badge badge-approved">Processing Steps</div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem;">
+            <div style="background:var(--gray-50);border-radius:var(--radius);padding:1rem;">
+              <h4 style="font-size:.92rem;font-weight:700;margin-bottom:.6rem;color:var(--primary);">Required Documents</h4>
+              <ul style="margin:0;padding-left:1.1rem;line-height:1.55;color:var(--gray-700);">${requirementItems}</ul>
+            </div>
+            <div style="background:var(--gray-50);border-radius:var(--radius);padding:1rem;">
+              <h4 style="font-size:.92rem;font-weight:700;margin-bottom:.6rem;color:var(--primary);">Service Workflow</h4>
+              <ol style="margin:0;padding-left:1.1rem;line-height:1.55;color:var(--gray-700);">${workflowItems}</ol>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  let receiptUploadHtml = '';
+  const uploadedFiles = app.uploaded_files || [];
+  if (app.status === 'for_payment') {
+    const fileRows = uploadedFiles.length > 0 ? uploadedFiles.map(f => {
+      const name = f.file_name || 'Receipt';
+      const url  = f.file_url || null;
+      return `<div class="file-item" style="margin-bottom:.5rem;">
+        <span class="file-icon">${fileIcon(name)}</span>
+        <span class="file-name">${escapeHtml(name)}</span>
+        <span class="file-size">${escapeHtml(f.file_type || 'Uploaded')}</span>
+        ${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline" style="flex-shrink:0;">View</a>` : ''}
+      </div>`;
+    }).join('') : '<p style="color:var(--gray-500);font-size:.9rem;margin:0;">No receipt uploaded yet.</p>';
+
+    receiptUploadHtml = `
+      <div class="card" style="margin-bottom:1rem;border:1px solid var(--gray-200);">
+        <div class="card-body">
+          <h4 style="font-size:.92rem;font-weight:700;margin-bottom:.75rem;color:var(--primary);">💳 Upload Payment Receipt</h4>
+          <p style="margin:0 0 .9rem;color:var(--gray-600);font-size:.9rem;">
+            Upload the receipt after payment so the admin can verify it.
+          </p>
+          <div class="file-upload-area" id="receipt-drop-area" style="margin-bottom:.75rem;">
+            <input type="file" id="receipt-input" accept=".pdf,.jpg,.jpeg,.png" />
+            <div class="upload-icon">📎</div>
+            <p><strong>Click to browse</strong> or drag & drop receipt here</p>
+            <p style="font-size:.8rem; color:var(--gray-500); margin-top:.3rem;">Accepted: PDF, JPG, PNG (max 10 MB)</p>
+          </div>
+          <div class="file-list" id="receipt-file-list">${fileRows}</div>
+          <div style="display:flex;justify-content:flex-end;margin-top:.9rem;">
+            <button class="btn btn-primary" id="btn-upload-receipt" type="button" disabled>Upload Receipt</button>
+          </div>
+          <div class="form-error" id="receipt-error">Please choose a receipt file.</div>
+        </div>
+      </div>`;
+  }
+
   resultDiv.innerHTML = `
     <hr style="margin:1.25rem 0;border-color:var(--gray-200);" />
     <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin-bottom:1rem;">
@@ -181,11 +258,15 @@ function renderResult(app) {
       <span class="badge ${cfg.class}" style="font-size:.95rem;padding:.4rem 1rem;">${cfg.icon} ${cfg.label}</span>
     </div>
 
+    ${serviceProcessHtml}
+  ${receiptUploadHtml}
+
     <div class="table-wrap" style="margin-bottom:1rem;">
       <table>
         <tbody>
           <tr><td style="color:var(--gray-600);font-size:.88rem;">Applicant Name</td><td>${escapeHtml(app.applicant_name)}</td></tr>
-          <tr><td style="color:var(--gray-600);font-size:.88rem;">Application Type</td><td>${escapeHtml(app.application_type?.replace(/_/g,' ') || '—')}</td></tr>
+          <tr><td style="color:var(--gray-600);font-size:.88rem;">Application Type</td><td>${escapeHtml(applicationTypeName)}</td></tr>
+          <tr><td style="color:var(--gray-600);font-size:.88rem;">Service Fee</td><td>${escapeHtml(feeText)}</td></tr>
           <tr><td style="color:var(--gray-600);font-size:.88rem;">Date Submitted</td><td>${formatDateTime(app.created_at)}</td></tr>
           ${detailRows}
         </tbody>
@@ -198,6 +279,64 @@ function renderResult(app) {
     ${feedbackHtml}
   `;
   resultDiv.classList.remove('hidden');
+
+  const receiptInput = document.getElementById('receipt-input');
+  const uploadBtn = document.getElementById('btn-upload-receipt');
+  const receiptErr = document.getElementById('receipt-error');
+  const receiptDropArea = document.getElementById('receipt-drop-area');
+
+  if (receiptInput && uploadBtn) {
+    receiptInput.addEventListener('change', () => {
+      receiptFile = receiptInput.files && receiptInput.files[0] ? receiptInput.files[0] : null;
+      uploadBtn.disabled = !receiptFile;
+      if (receiptErr) receiptErr.classList.remove('visible');
+    }, { once: true });
+  }
+
+  if (receiptDropArea && receiptInput) {
+    receiptDropArea.addEventListener('dragover', e => { e.preventDefault(); receiptDropArea.classList.add('dragover'); });
+    receiptDropArea.addEventListener('dragleave', () => receiptDropArea.classList.remove('dragover'));
+    receiptDropArea.addEventListener('drop', e => {
+      e.preventDefault();
+      receiptDropArea.classList.remove('dragover');
+      const file = e.dataTransfer.files && e.dataTransfer.files[0] ? e.dataTransfer.files[0] : null;
+      if (!file) return;
+      receiptFile = file;
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      receiptInput.files = dt.files;
+      uploadBtn.disabled = false;
+      if (receiptErr) receiptErr.classList.remove('visible');
+    });
+  }
+
+  if (uploadBtn) {
+    uploadBtn.addEventListener('click', uploadReceipt, { once: true });
+  }
+}
+
+async function uploadReceipt() {
+  const errEl = document.getElementById('receipt-error');
+  const btn = document.getElementById('btn-upload-receipt');
+  if (!currentApp) return;
+  if (!receiptFile) {
+    if (errEl) errEl.classList.add('visible');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Uploading…';
+
+  const { error } = await uploadFile(currentApp.id, receiptFile);
+  if (error) {
+    showToast(error.message || 'Failed to upload receipt.', 'danger');
+    btn.disabled = false;
+    btn.textContent = 'Upload Receipt';
+    return;
+  }
+
+  showToast('Receipt uploaded successfully. The admin can now verify it.', 'success');
+  doSearch(input.value.trim());
 }
 </script>
 </body>

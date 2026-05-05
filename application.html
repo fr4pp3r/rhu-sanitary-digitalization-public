@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Apply – RHU Sanitary Permit System</title>
+  <title>Apply – NARRA MUNICIPAL HEALTH OFFICE Services Portal</title>
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
@@ -13,7 +13,7 @@
   <nav class="navbar">
     <a href="index.html" class="navbar-brand">
       <span class="logo-icon">🏥</span>
-      <span>RHU Sanitary Permit System</span>
+      <span>NARRA MUNICIPAL HEALTH OFFICE</span>
     </a>
     <ul class="navbar-nav">
       <li><a href="index.html">Home</a></li>
@@ -29,6 +29,8 @@
   <p id="page-subtitle">Fill in the required information and upload the necessary documents.</p>
 </section>
 
+<section class="container" id="service-overview" style="padding-top:1rem;"></section>
+
 <main class="container" style="padding-top:1.5rem; padding-bottom:2rem;">
 
   <!-- Step indicator -->
@@ -39,7 +41,7 @@
     </div>
     <div class="step" id="step-2">
       <div class="step-circle">2</div>
-      <div class="step-label">Business Info</div>
+      <div class="step-label">Service Details</div>
     </div>
     <div class="step" id="step-3">
       <div class="step-circle">3</div>
@@ -168,7 +170,7 @@
 </main>
 
 <footer class="site-footer">
-  <p>&copy; <span id="year"></span> Rural Health Unit. All rights reserved.</p>
+  <p>&copy; <span id="year"></span> NARRA MUNICIPAL HEALTH OFFICE. All rights reserved.</p>
 </footer>
 
 <!-- Toast container (added dynamically by utils.js) -->
@@ -191,20 +193,60 @@ const uploadedFiles = {};  // field_name → [{file, url}]
 // ── Locate application type ────────────────────────────────────────────────────
 const typeId = getQueryParam('type');
 const appType = APPLICATION_TYPES.find(t => t.id === typeId);
+const serviceOverview = document.getElementById('service-overview');
 
 if (!appType) {
   document.getElementById('page-title').textContent = 'Application Not Found';
   document.getElementById('page-subtitle').textContent = 'The requested application type does not exist.';
+  serviceOverview.innerHTML = '';
   document.getElementById('panel-1').innerHTML =
     `<div class="alert alert-danger"><span class="alert-icon">❌</span>
      Invalid application type. <a href="index.html">Go back to Home</a>.</div>`;
 } else {
-  document.title = `${appType.name} – RHU Sanitary Permit System`;
+  document.title = `${appType.name} – NARRA MUNICIPAL HEALTH OFFICE Services Portal`;
   document.getElementById('page-title').textContent    = appType.name;
   document.getElementById('page-subtitle').textContent = appType.description;
   document.getElementById('dynamic-section-title').textContent = `${appType.icon} Application Details`;
+  renderServiceOverview(appType);
   buildDynamicFields(appType);
   buildFileUploads(appType);
+}
+
+function renderServiceOverview(type) {
+  const feeText = typeof type.fee === 'number'
+    ? new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(type.fee)
+    : '—';
+
+  const requirementsHtml = (type.requirements || []).map(req => `<li>${escapeHtml(req)}</li>`).join('');
+  const workflowHtml = (type.workflow || []).map(step => `<li>${escapeHtml(step)}</li>`).join('');
+
+  serviceOverview.innerHTML = `
+    <div class="card mb-4" style="border:1px solid var(--primary-light);box-shadow:0 10px 30px rgba(20,74,72,.06);">
+      <div class="card-body">
+        <div style="display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;align-items:flex-start;margin-bottom:1rem;">
+          <div>
+            <div style="font-size:.82rem;color:var(--gray-500);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.25rem;">Service Fee</div>
+            <div style="font-size:1.35rem;font-weight:800;color:var(--primary);">${escapeHtml(feeText)}</div>
+          </div>
+          <div class="badge badge-approved" style="font-size:.9rem;">Ready for submission</div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem;">
+          <div style="background:var(--gray-50);border-radius:var(--radius);padding:1rem;">
+            <h3 style="margin:0 0 .75rem;font-size:1rem;color:var(--primary);">Required Documents</h3>
+            <ul style="margin:0;padding-left:1.1rem;line-height:1.55;color:var(--gray-700);">
+              ${requirementsHtml}
+            </ul>
+          </div>
+          <div style="background:var(--gray-50);border-radius:var(--radius);padding:1rem;">
+            <h3 style="margin:0 0 .75rem;font-size:1rem;color:var(--primary);">Process Steps</h3>
+            <ol style="margin:0;padding-left:1.1rem;line-height:1.55;color:var(--gray-700);">
+              ${workflowHtml}
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>`;
 }
 
 function goToStep(n) {
@@ -251,6 +293,15 @@ function validateApplicantForm() {
 // ── Dynamic fields (Step 2) ───────────────────────────────────────────────────
 function buildDynamicFields(type) {
   const container = document.getElementById('dynamic-fields');
+  container.innerHTML = '';
+
+  if (!type.fields || type.fields.length === 0) {
+    container.innerHTML = `<p style="font-size:.9rem;color:var(--gray-600);">
+      No additional service details are required at this time.
+    </p>`;
+    return;
+  }
+
   type.fields.forEach(f => {
     const group = document.createElement('div');
     group.className = 'form-group';
@@ -300,9 +351,24 @@ document.getElementById('btn-next-2').addEventListener('click', () => {
 // ── File uploads (Step 3) ─────────────────────────────────────────────────────
 function buildFileUploads(type) {
   const container = document.getElementById('file-upload-area');
+  container.innerHTML = '';
+
+  if (!type.files || type.files.length === 0) {
+    container.innerHTML = `
+      <div class="alert alert-info" style="justify-content:flex-start;">
+        <span class="alert-icon">ℹ️</span>
+        <div>
+          Service requirements will be added by NARRA MUNICIPAL HEALTH OFFICE soon. You may proceed with submission for now.
+        </div>
+      </div>
+    `;
+    return;
+  }
+
   type.files.forEach(f => {
     const wrap = document.createElement('div');
     wrap.style.marginBottom = '1.25rem';
+    const noteHtml = f.note ? `<p style="font-size:.82rem;color:var(--gray-500);margin:.35rem 0 0;">${escapeHtml(f.note)}</p>` : '';
     wrap.innerHTML = `
       <label style="font-weight:600;font-size:.92rem;display:block;margin-bottom:.5rem;">
         ${escapeHtml(f.label)}${f.required ? ' <span class="required">*</span>' : ' <span style="color:var(--gray-500);font-weight:400;">(optional)</span>'}
@@ -315,6 +381,7 @@ function buildFileUploads(type) {
       </div>
       <div class="file-list" id="fl-${escapeHtml(f.name)}"></div>
       <div class="form-error" id="ferr-${escapeHtml(f.name)}">Please upload the required document.</div>
+      ${noteHtml}
     `;
     container.appendChild(wrap);
     setupFileInput(f.name, f.required);
@@ -422,7 +489,12 @@ function buildReview() {
     const fileEntries = appType.files.map(f => {
       const files = uploadedFiles[f.name] || [];
       const fileNames = files.length ? files.map(e => escapeHtml(e.file.name)).join(', ') : '—';
-      return entry(f.label, fileNames);
+      const note = f.note ? `<div style="font-size:.78rem;color:var(--gray-500);margin-top:.25rem;">${escapeHtml(f.note)}</div>` : '';
+      return `<div style="background:var(--gray-100);border-radius:var(--radius);padding:.6rem .85rem;">
+        <div style="font-size:.78rem;color:var(--gray-500);margin-bottom:.2rem;">${escapeHtml(f.label)}</div>
+        <div style="font-size:.92rem;font-weight:600;">${fileNames}</div>
+        ${note}
+      </div>`;
     }).join('');
     html += `<div>
       <h4 style="font-size:.9rem;color:var(--gray-600);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem;">Documents to Upload</h4>

@@ -135,7 +135,7 @@ async function fetchByReferenceNumber(referenceNumber) {
   if (sb) {
     const { data, error } = await sb
       .from('applications')
-      .select('*, application_details(*), feedback(*)')
+      .select('*, application_details(*), uploaded_files(*), feedback(*)')
       .eq('reference_number', referenceNumber.trim().toUpperCase())
       .single();
     return { data, error };
@@ -174,7 +174,7 @@ async function fetchApplicationById(id) {
 /**
  * Update the status of an application (admin use).
  * @param {string} id
- * @param {'pending'|'approved'|'rejected'|'needs_revision'} status
+ * @param {'pending'|'for_payment'|'approved'|'rejected'|'needs_revision'} status
  */
 async function updateApplicationStatus(id, status) {
   const sb = getSupabaseClient();
@@ -270,7 +270,21 @@ async function uploadFile(applicationId, file, onProgress) {
       if (progress >= 100) {
         clearInterval(interval);
         const reader = new FileReader();
-        reader.onload = () => resolve({ url: reader.result, error: null });
+        reader.onload = () => {
+          const rows = _loadStore();
+          const app = rows.find(r => r.id === applicationId);
+          if (app) {
+            app.files = app.files || [];
+            app.files.push({
+              file_name: file.name,
+              file_url: reader.result,
+              file_type: file.type,
+              category: 'receipt',
+            });
+            _saveStore(rows);
+          }
+          resolve({ url: reader.result, error: null });
+        };
         reader.onerror = () => resolve({ url: null, error: { message: 'FileReader error' } });
         reader.readAsDataURL(file);
       }
@@ -280,15 +294,16 @@ async function uploadFile(applicationId, file, onProgress) {
 
 /**
  * Get dashboard count statistics (admin).
- * @returns {Promise<{total:number, pending:number, approved:number, rejected:number, needs_revision:number}>}
+ * @returns {Promise<{total:number, pending:number, for_payment:number, approved:number, rejected:number, needs_revision:number}>}
  */
 async function fetchStats() {
   const sb = getSupabaseClient();
 
   if (sb) {
-    const [total, pending, approved, rejected, needs_revision] = await Promise.all([
+    const [total, pending, for_payment, approved, rejected, needs_revision] = await Promise.all([
       sb.from('applications').select('id', { count: 'exact', head: true }),
       sb.from('applications').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+      sb.from('applications').select('id', { count: 'exact', head: true }).eq('status', 'for_payment'),
       sb.from('applications').select('id', { count: 'exact', head: true }).eq('status', 'approved'),
       sb.from('applications').select('id', { count: 'exact', head: true }).eq('status', 'rejected'),
       sb.from('applications').select('id', { count: 'exact', head: true }).eq('status', 'needs_revision'),
@@ -296,6 +311,7 @@ async function fetchStats() {
     return {
       total:          total.count     || 0,
       pending:        pending.count   || 0,
+      for_payment:    for_payment.count || 0,
       approved:       approved.count  || 0,
       rejected:       rejected.count  || 0,
       needs_revision: needs_revision.count || 0,
@@ -308,6 +324,7 @@ async function fetchStats() {
   return {
     total:          rows.length,
     pending:        count('pending'),
+      for_payment:    count('for_payment'),
     approved:       count('approved'),
     rejected:       count('rejected'),
     needs_revision: count('needs_revision'),

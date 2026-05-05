@@ -1,5 +1,5 @@
 -- ============================================================
--- RHU Sanitary Permit System – Supabase Database Schema
+-- NARRA MUNICIPAL HEALTH OFFICE Services Portal – Supabase Database Schema
 -- Run this in the Supabase SQL Editor (Dashboard → SQL Editor)
 -- ============================================================
 
@@ -14,7 +14,7 @@ create table if not exists public.applications (
   contact_info     text         not null,
   application_type text         not null,
   status           text         not null default 'pending'
-                                check (status in ('pending','approved','rejected','needs_revision')),
+                                check (status in ('pending','for_payment','approved','rejected','needs_revision')),
   created_at       timestamptz  not null default now()
 );
 

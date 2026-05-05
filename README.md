@@ -1,13 +1,13 @@
-# RHU Sanitary Permit System
+# NARRA MUNICIPAL HEALTH OFFICE Services Portal
 
-A web-based sanitary permit application and management system for the Rural Health Unit (RHU), built with vanilla HTML/CSS/JavaScript and **Supabase** as the backend.
+A web-based sanitary and health services application and management system for NARRA MUNICIPAL HEALTH OFFICE, built with vanilla HTML/CSS/JavaScript and **Supabase** as the backend.
 
 ---
 
 ## ✨ Features
 
 ### Client Side (No login required)
-- **Home Page** — 11 selectable sanitary permit / health certificate application types
+- **Home Page** — 8 selectable sanitary and health-related services
 - **Application Form** — Multi-step dynamic form (Applicant Info → Business Info → File Uploads → Review & Submit)
 - **File Uploads** — Drag-and-drop document uploads stored in Supabase Storage
 - **Reference Number** — Auto-generated on submission for status tracking
@@ -18,6 +18,7 @@ A web-based sanitary permit application and management system for the Rural Heal
 - **Dashboard** — Summary statistics (total, pending, approved, rejected, needs revision) + recent applications
 - **Applications Table** — Search, filter by status, and paginate through all submissions
 - **Review Page** — Full application detail, uploaded file viewer, status updater, and feedback sender
+- **Services Page** — View and edit the services offered, including fees, requirements, workflow steps, and form details
 
 ---
 
@@ -32,6 +33,7 @@ rhu-sanitary-digitalization/
 │   ├── login.html          # Admin login
 │   ├── dashboard.html      # Admin dashboard
 │   ├── applications.html   # Applications list with search/filter
+│   ├── services.html       # Services management page
 │   └── review.html         # Review individual application
 ├── css/
 │   └── styles.css          # Global stylesheet
@@ -54,6 +56,8 @@ rhu-sanitary-digitalization/
 3. All data is saved to **localStorage** — the app is fully functional without a Supabase account.
 
 > **Note:** ES module `import/export` requires a HTTP server. File-based `file://` protocol will not work for JS modules.
+
+> **Note:** Service edits made from the admin Services page are stored in the browser's localStorage in the current demo setup.
 
 ### Phase 2 — Connect Supabase
 
@@ -111,19 +115,16 @@ applications/
 
 ---
 
-## 📱 Application Types (11)
+## 📱 Service Types (8)
 
-1. Sanitary Permit – New Business
-2. Sanitary Permit – Renewal
-3. Transfer of Ownership
-4. Change of Business Name
-5. Additional / Expanded Activities
-6. Temporary Sanitary Permit
-7. Sanitary Clearance
-8. Health Certificate
-9. Food Handler's Permit
-10. Water Refilling Station Permit
-11. Swimming Pool / Spa Permit
+1. Issuance of Permit to Disinter / Exhume
+2. Issuance of Permit to Transfer Cadaver
+3. Issuance of Permit to Exhume and Transfer Cadaver
+4. Issuance of Certificate of Potability
+5. Issuance of Health Card for Food Handlers (Yellow)
+6. Issuance of Health Card for Non-Food Handlers (Green)
+7. Issuance of Provisional Sanitary Permit for New Business Application
+8. Issuance of New and Renewal Sanitary Permit Application
 
 ---
 

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dashboard – RHU Admin</title>
+  <title>Dashboard – NARRA MUNICIPAL HEALTH OFFICE Admin</title>
   <link rel="stylesheet" href="../css/styles.css" />
 </head>
 <body>
@@ -15,8 +15,8 @@
     <div class="sidebar-brand">
       <div class="brand-icon">🏥</div>
       <div>
-        <div style="font-size:.9rem;">RHU Admin</div>
-        <div style="font-size:.72rem;opacity:.7;">Sanitary Permit System</div>
+        <div style="font-size:.9rem;">NARRA MHO Admin</div>
+        <div style="font-size:.72rem;opacity:.7;">Services Portal</div>
       </div>
     </div>
     <nav class="sidebar-nav">
@@ -27,6 +27,10 @@
       <a href="applications.html">
         <span class="nav-icon">📋</span>
         <span class="nav-label">Applications</span>
+      </a>
+      <a href="services.html">
+        <span class="nav-icon">🛠️</span>
+        <span class="nav-label">Services</span>
       </a>
     </nav>
     <div class="sidebar-footer">
@@ -60,6 +64,13 @@
           <div class="stat-info">
             <div class="stat-num" id="stat-pending">—</div>
             <div class="stat-label">Pending</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon blue">💳</div>
+          <div class="stat-info">
+            <div class="stat-num" id="stat-for-payment">—</div>
+            <div class="stat-label">For Payment</div>
           </div>
         </div>
         <div class="stat-card">
@@ -122,6 +133,7 @@
 <script type="module">
 import { getSupabaseClient } from '../js/supabase.js';
 import { fetchStats, fetchApplications } from '../js/db.js';
+import { getApplicationTypeName } from '../js/data.js';
 import { escapeHtml, formatDateTime } from '../js/utils.js';
 
 // ── Auth guard ────────────────────────────────────────────────────────────────
@@ -147,6 +159,7 @@ async function loadDashboard() {
   const stats = await fetchStats();
   document.getElementById('stat-total').textContent   = stats.total;
   document.getElementById('stat-pending').textContent  = stats.pending;
+  document.getElementById('stat-for-payment').textContent = stats.for_payment;
   document.getElementById('stat-approved').textContent = stats.approved;
   document.getElementById('stat-rejected').textContent = stats.rejected;
   document.getElementById('stat-revision').textContent = stats.needs_revision;
@@ -162,7 +175,7 @@ async function loadDashboard() {
     <tr>
       <td><code>${escapeHtml(a.reference_number)}</code></td>
       <td>${escapeHtml(a.applicant_name)}</td>
-      <td style="font-size:.85rem;">${escapeHtml((a.application_type||'').replace(/_/g,' '))}</td>
+      <td style="font-size:.85rem;">${escapeHtml(getApplicationTypeName(a.application_type))}</td>
       <td>${statusBadge(a.status)}</td>
       <td style="font-size:.85rem;">${formatDateTime(a.created_at)}</td>
       <td><a href="review.html?id=${encodeURIComponent(a.id)}" class="btn btn-sm btn-outline">Review</a></td>
@@ -172,6 +185,7 @@ async function loadDashboard() {
 function statusBadge(status) {
   const map = {
     pending:        ['badge-pending',  '⏳ Pending'],
+    for_payment:    ['badge-payment',  '💳 For Payment'],
     approved:       ['badge-approved', '✅ Approved'],
     rejected:       ['badge-rejected', '❌ Rejected'],
     needs_revision: ['badge-revision', '📝 Needs Revision'],

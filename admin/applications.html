@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Applications – RHU Admin</title>
+  <title>Applications – NARRA MUNICIPAL HEALTH OFFICE Admin</title>
   <link rel="stylesheet" href="../css/styles.css" />
 </head>
 <body>
@@ -15,8 +15,8 @@
     <div class="sidebar-brand">
       <div class="brand-icon">🏥</div>
       <div>
-        <div style="font-size:.9rem;">RHU Admin</div>
-        <div style="font-size:.72rem;opacity:.7;">Sanitary Permit System</div>
+        <div style="font-size:.9rem;">NARRA MHO Admin</div>
+        <div style="font-size:.72rem;opacity:.7;">Services Portal</div>
       </div>
     </div>
     <nav class="sidebar-nav">
@@ -27,6 +27,10 @@
       <a href="applications.html" class="active">
         <span class="nav-icon">📋</span>
         <span class="nav-label">Applications</span>
+      </a>
+      <a href="services.html">
+        <span class="nav-icon">🛠️</span>
+        <span class="nav-label">Services</span>
       </a>
     </nav>
     <div class="sidebar-footer">
@@ -55,6 +59,7 @@
         <select id="status-filter" class="form-control" style="width:auto;min-width:160px;">
           <option value="all">All Statuses</option>
           <option value="pending">Pending</option>
+          <option value="for_payment">For Payment</option>
           <option value="approved">Approved</option>
           <option value="rejected">Rejected</option>
           <option value="needs_revision">Needs Revision</option>
@@ -100,6 +105,7 @@
 <script type="module">
 import { getSupabaseClient } from '../js/supabase.js';
 import { fetchApplications } from '../js/db.js';
+import { getApplicationTypeName } from '../js/data.js';
 import { escapeHtml, formatDateTime } from '../js/utils.js';
 
 const PER_PAGE = 15;
@@ -149,7 +155,7 @@ async function loadApplications() {
       <td><code style="font-size:.85rem;">${escapeHtml(a.reference_number)}</code></td>
       <td>${escapeHtml(a.applicant_name)}</td>
       <td style="font-size:.85rem;">${escapeHtml(a.contact_info || '—')}</td>
-      <td style="font-size:.85rem;">${escapeHtml((a.application_type||'').replace(/_/g,' '))}</td>
+      <td style="font-size:.85rem;">${escapeHtml(getApplicationTypeName(a.application_type))}</td>
       <td>${statusBadge(a.status)}</td>
       <td style="font-size:.85rem;white-space:nowrap;">${formatDateTime(a.created_at)}</td>
       <td>
@@ -190,6 +196,7 @@ function makePageBtn(label, disabled) {
 function statusBadge(status) {
   const map = {
     pending:        ['badge-pending',  '⏳ Pending'],
+    for_payment:    ['badge-payment',  '💳 For Payment'],
     approved:       ['badge-approved', '✅ Approved'],
     rejected:       ['badge-rejected', '❌ Rejected'],
     needs_revision: ['badge-revision', '📝 Needs Revision'],
