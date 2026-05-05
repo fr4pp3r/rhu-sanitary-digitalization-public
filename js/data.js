@@ -25,12 +25,9 @@ const DEFAULT_APPLICATION_TYPES = [
     workflow: [
       'Client fills up basic information along with contact information.',
       'Client uploads the required files.',
-      'Admin checks and verifies the information and files.',
-      'After verification, the application status is updated and the client can proceed with payment.',
+      'After verification, client can proceed with payment.',
       'Client uploads the receipt after payment.',
-      'Admin verifies the receipt, updates the application status, and prepares the permit.',
-      'If the permit is ready, the application status is updated again.',
-      'Client comes to the main office to claim the permit.',
+      'Once permit is ready, client comes to the main office to claim the permit.',
     ],
     fields: [
       { name: 'deceased_name',    label: 'Name of Deceased',              type: 'text',     required: true },
@@ -75,6 +72,20 @@ const DEFAULT_APPLICATION_TYPES = [
     name: 'Issuance of Permit to Transfer Cadaver',
     icon: '🚐',
     description: 'Service for requesting authorization to transfer a cadaver to another location.',
+    fee: 140,
+    requirements: [
+      'Request Letter addressed to the Municipal Health Officer stating the name, address, and purpose of request for transferring of cadaver.',
+      'Authorization Letter from the relative / family member of the dead. Required only if a non family member is requesting for Permit to Transfer.',
+      'Photocopy of Death Certificate - For Permit to Transfer (New deaths, cause of death is not due to a dangerous communicable disease.)',
+      'Burial Permit for New Death',
+    ],
+    workflow: [
+      'Client fills up basic information along with contact information.',
+      'Client uploads the required files.',
+      'After verification, client can proceed with payment.',
+      'Client uploads the receipt after payment.',
+      'Once permit is ready, client comes to the main office to claim the permit.',
+    ],
     fields: [
       { name: 'deceased_name',    label: 'Name of Deceased',              type: 'text',   required: true },
       { name: 'origin',           label: 'Origin of Transfer',            type: 'text',   required: true },
@@ -82,13 +93,51 @@ const DEFAULT_APPLICATION_TYPES = [
       { name: 'target_date',      label: 'Date of Transfer',              type: 'date',   required: true },
       { name: 'transport_mode',   label: 'Mode of Transport',             type: 'text',   required: true },
     ],
-    files: [],
+    files: [
+      {
+        name: 'request_letter',
+        label: 'Request Letter addressed to the Municipal Health Officer',
+        required: true,
+      },
+      {
+        name: 'authorization_letter',
+        label: 'Authorization Letter from the relative / family member of the dead',
+        required: false,
+        note: 'Required only if a non family member is requesting for Permit to Transfer.',
+      },
+      {
+        name: 'death_certificate',
+        label: 'Photocopy of Death Certificate',
+        required: true,
+        note: 'For Permit to Transfer (New deaths, cause of death is not due to a dangerous communicable disease.)',
+      },
+      {
+        name: 'burial_permit',
+        label: 'Burial Permit for New Death',
+        required: true,
+      },
+    ],
   },
   {
     id: 'permit_exhume_transfer_cadaver',
     name: 'Issuance of Permit to Exhume and Transfer Cadaver',
     icon: '🛣️',
     description: 'Combined permit service for exhumation and cadaver transfer requests.',
+    fee: 550,
+    requirements: [
+      'Request Letter addressed to the Municipal Health Officer stating the name, address, and purpose of request for exhumation / disinterment and transfer.',
+      'Authorization Letter from the relative / family member of the dead. Required only if a non family member is requesting for Permit to Transfer.',
+      'Photocopy of Death Certificate - For Permit to Disinter/Exhumation (cause of death is other than dangerous communicable disease, permission may be granted after such bodies have been buried for the period of three (3) years. While if cause of death is due to any dangerous communicable disease, shall be exhumed after lapse of five (5) years after burial.)',
+      'Reburial Permit',
+      'Permit / Approval from the Director of CHD-MIMAROPA (For special cases, exhumation for autopsy of cadaver buried less than the prescribed period in PD 856 – Chapter XXI)',
+    ],
+    workflow: [
+      'Client fills up basic information along with contact information.',
+      'Client uploads the required files.',
+      'After verification, client can proceed with payment.',
+      'Client uploads the receipt after payment.',
+      'Once permit is ready, client comes to the main office to claim the permit.',
+    ],
     fields: [
       { name: 'deceased_name',    label: 'Name of Deceased',              type: 'text',     required: true },
       { name: 'exhumation_site',  label: 'Exhumation Site',               type: 'text',     required: true },
@@ -96,7 +145,36 @@ const DEFAULT_APPLICATION_TYPES = [
       { name: 'reason',           label: 'Reason for Exhumation and Transfer', type: 'textarea', required: true },
       { name: 'target_date',      label: 'Requested Date',                type: 'date',     required: true },
     ],
-    files: [],
+    files: [
+      {
+        name: 'request_letter',
+        label: 'Request Letter addressed to the Municipal Health Officer',
+        required: true,
+      },
+      {
+        name: 'authorization_letter',
+        label: 'Authorization Letter from the relative / family member of the dead',
+        required: false,
+        note: 'Required only if a non family member is requesting for Permit to Transfer.',
+      },
+      {
+        name: 'death_certificate',
+        label: 'Photocopy of Death Certificate',
+        required: true,
+        note: 'For Permit to Disinter/Exhumation (cause of death is other than dangerous communicable disease, permission may be granted after such bodies have been buried for the period of three (3) years. While if cause of death is due to any dangerous communicable disease, shall be exhumed after lapse of five (5) years after burial.)',
+      },
+      {
+        name: 'reburial_permit',
+        label: 'Reburial Permit',
+        required: true,
+      },
+      {
+        name: 'chd_mimaropa_approval',
+        label: 'Permit / Approval from the Director of CHD-MIMAROPA',
+        required: false,
+        note: 'For special cases, exhumation for autopsy of cadaver buried less than the prescribed period in PD 856 – Chapter XXI.',
+      },
+    ],
   },
   {
     id: 'certificate_potability',
