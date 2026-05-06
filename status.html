@@ -125,6 +125,44 @@ const STATUS_CONFIG = {
   needs_revision: { label: 'Needs Revision', class: 'badge-revision', icon: '📝', timelineClass: 'active' },
 };
 
+function getDetailValue(app, fieldName) {
+  if (app.application_details && Array.isArray(app.application_details)) {
+    const row = app.application_details.find(d => d.field_name === fieldName && d.field_value);
+    return row ? String(row.field_value).trim() : '';
+  }
+
+  if (app.details && typeof app.details === 'object') {
+    const v = app.details[fieldName];
+    return v ? String(v).trim() : '';
+  }
+
+  return '';
+}
+
+function getServiceFeeText(appType, app) {
+  const peso = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' });
+  if (!appType) return '—';
+
+  const feeSchedule = appType.fee_by_category && typeof appType.fee_by_category === 'object'
+    ? appType.fee_by_category
+    : null;
+
+  if (feeSchedule) {
+    const entries = Object.entries(feeSchedule).filter(([, amount]) => Number.isFinite(Number(amount)));
+    if (entries.length > 0) {
+      const category = getDetailValue(app, 'establishment_category');
+      if (category && Number.isFinite(Number(feeSchedule[category]))) {
+        return `${peso.format(Number(feeSchedule[category]))} (${category})`;
+      }
+
+      const amounts = entries.map(([, amount]) => Number(amount));
+      return `${peso.format(Math.min(...amounts))} - ${peso.format(Math.max(...amounts))}`;
+    }
+  }
+
+  return typeof appType.fee === 'number' ? peso.format(appType.fee) : '—';
+}
+
 function renderResult(app) {
   currentApp = app;
   receiptFile = null;
@@ -132,9 +170,7 @@ function renderResult(app) {
   const details = app.details || {};
   const applicationTypeName = getApplicationTypeName(app.application_type);
   const appType = getApplicationTypeById(app.application_type);
-  const feeText = appType && typeof appType.fee === 'number'
-    ? new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(appType.fee)
-    : '₱570.00';
+  const feeText = getServiceFeeText(appType, app);
 
   // Build details rows
   let detailRows = '';

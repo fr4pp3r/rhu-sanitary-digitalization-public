@@ -214,9 +214,26 @@ if (!appType) {
 }
 
 function renderServiceOverview(type) {
-  const feeText = typeof type.fee === 'number'
-    ? new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(type.fee)
-    : '—';
+  const peso = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' });
+  const feeSchedule = type.fee_by_category && typeof type.fee_by_category === 'object' ? type.fee_by_category : null;
+  let feeText = typeof type.fee === 'number' ? peso.format(type.fee) : '—';
+  let feeNote = '';
+  let feeScheduleHtml = '';
+
+  if (feeSchedule) {
+    const entries = Object.entries(feeSchedule).filter(([, amount]) => Number.isFinite(Number(amount)));
+    if (entries.length > 0) {
+      const amounts = entries.map(([, amount]) => Number(amount));
+      const minFee = Math.min(...amounts);
+      const maxFee = Math.max(...amounts);
+      feeText = `${peso.format(minFee)} - ${peso.format(maxFee)}`;
+      feeNote = 'Final fee depends on establishment category.';
+      feeScheduleHtml = `<div style="margin-top:.65rem;font-size:.82rem;color:var(--gray-600);line-height:1.5;">
+        <strong style="color:var(--gray-700);">Category Fee Schedule:</strong>
+        ${entries.map(([category, amount]) => `${escapeHtml(category)} (${escapeHtml(peso.format(Number(amount)))})`).join(' • ')}
+      </div>`;
+    }
+  }
 
   const requirementsHtml = (type.requirements || []).map(req => `<li>${escapeHtml(req)}</li>`).join('');
   const workflowHtml = (type.workflow || []).map(step => `<li>${escapeHtml(step)}</li>`).join('');
@@ -228,6 +245,8 @@ function renderServiceOverview(type) {
           <div>
             <div style="font-size:.82rem;color:var(--gray-500);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.25rem;">Service Fee</div>
             <div style="font-size:1.35rem;font-weight:800;color:var(--primary);">${escapeHtml(feeText)}</div>
+            ${feeNote ? `<div style="font-size:.82rem;color:var(--gray-600);margin-top:.3rem;">${escapeHtml(feeNote)}</div>` : ''}
+            ${feeScheduleHtml}
           </div>
           <div class="badge badge-approved" style="font-size:.9rem;">Ready for submission</div>
         </div>
