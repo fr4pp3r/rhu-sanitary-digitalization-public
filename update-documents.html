@@ -203,13 +203,26 @@
       delete selectedFilesByField[key];
     });
 
+    const visiblePendingFileNames = [
+      'food_handlers_training',
+      'lab_results',
+      'hiv_seminar',
+      'deworming',
+      'xray',
+      'cbc',
+      'urinalysis',
+      'fecalysis',
+      'hepa_a',
+      'sputum',
+    ];
+
     // Identify pending files - documents that are required but not yet uploaded
     const pendingFiles = serviceType.files.filter(file => {
-      // For these special files, they're typically uploaded AFTER payment/training
-      const isTrainingOrLabFile = ['food_handlers_training', 'lab_results', 'hiv_seminar', 'deworming'].includes(file.name);
+      // Only show document types that are tracked as additional uploads for supported services.
+      const isTrackedUpload = visiblePendingFileNames.includes(file.name);
       const isUploaded = uploadedNames.some(name => name.toLowerCase().includes(file.name));
       
-      return isTrainingOrLabFile && !isUploaded;
+      return isTrackedUpload && !isUploaded;
     });
 
     if (pendingFiles.length === 0) {
