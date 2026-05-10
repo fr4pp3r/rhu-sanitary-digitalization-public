@@ -368,7 +368,7 @@ async function uploadReceipt() {
   btn.disabled = true;
   btn.textContent = '⏳ Uploading…';
 
-  const { error } = await uploadFile(currentApp.id, receiptFile);
+  const { error } = await uploadFile(currentApp.id, receiptFile, undefined, { fieldName: 'receipt' });
   if (error) {
     showToast(error.message || 'Failed to upload receipt.', 'danger');
     btn.disabled = false;

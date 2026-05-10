@@ -1,0 +1,9 @@
+{
+  "name": "rhu-sanitary-digitalization",
+  "private": true,
+  "version": "1.0.0",
+  "description": "NARRA MUNICIPAL HEALTH OFFICE sanitary permit portal",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.8"
+  }
+}

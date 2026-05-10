@@ -430,7 +430,7 @@
           if (progressElem) {
             progressElem.textContent = `Uploading: ${progress}%`;
           }
-        });
+        }, { fieldName });
 
         if (upErr) {
           failedCount++;

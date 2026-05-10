@@ -13,9 +13,130 @@ import { generateReferenceNumber, saveLocal, loadLocal } from './utils.js';
 
 // ─── Demo / offline store ─────────────────────────────────────────────────────
 const STORE_KEY = 'rhu_applications';
+const API_BASE = '/api';
+const ALLOWED_UPLOAD_MIME_TYPES = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]);
 
 function _loadStore() { return loadLocal(STORE_KEY, []); }
 function _saveStore(rows) { saveLocal(STORE_KEY, rows); }
+
+function normalizeApplicationRecord(record) {
+  if (!record || typeof record !== 'object') return record;
+  const uploaded = Array.isArray(record.uploaded_files)
+    ? record.uploaded_files
+    : Array.isArray(record.files)
+      ? record.files
+      : [];
+  return {
+    ...record,
+    uploaded_files: uploaded,
+    files: uploaded,
+    feedback: Array.isArray(record.feedback) ? record.feedback : [],
+  };
+}
+
+async function tryApi(path, options = {}) {
+  try {
+    const response = await fetch(`${API_BASE}${path}`, options);
+    if (response.status === 404) return { available: false, data: null, error: null };
+
+    const isJson = (response.headers.get('content-type') || '').includes('application/json');
+    const payload = isJson ? await response.json() : {};
+    if (!response.ok) {
+      return {
+        available: true,
+        data: null,
+        error: payload?.error || { message: `Request failed (${response.status})` },
+      };
+    }
+
+    return { available: true, data: payload?.data ?? payload, error: null };
+  } catch {
+    return { available: false, data: null, error: null };
+  }
+}
+
+function uploadViaSignedUrl(uploadUrl, file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', uploadUrl, true);
+    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+
+    xhr.upload.onprogress = event => {
+      if (typeof onProgress !== 'function' || !event.lengthComputable) return;
+      const pct = Math.round((event.loaded / event.total) * 100);
+      onProgress(pct);
+    };
+
+    xhr.onerror = () => reject({ message: 'Network error while uploading file.' });
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        if (typeof onProgress === 'function') onProgress(100);
+        resolve(true);
+        return;
+      }
+      reject({ message: `Upload failed (${xhr.status}).` });
+    };
+
+    xhr.send(file);
+  });
+}
+
+function maybeCompressImage(file) {
+  const isImage = (file?.type || '').startsWith('image/');
+  const supported = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  if (!isImage || !supported.includes(file.type) || file.size <= 900 * 1024) {
+    return Promise.resolve(file);
+  }
+
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+
+    img.onload = () => {
+      const maxDim = 1600;
+      const ratio = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const width = Math.max(1, Math.round(img.width * ratio));
+      const height = Math.max(1, Math.round(img.height * ratio));
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        URL.revokeObjectURL(url);
+        resolve(file);
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, width, height);
+      const outputType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+      const quality = outputType === 'image/jpeg' ? 0.8 : undefined;
+
+      canvas.toBlob(blob => {
+        URL.revokeObjectURL(url);
+        if (!blob || blob.size >= file.size * 0.95) {
+          resolve(file);
+          return;
+        }
+        resolve(new File([blob], file.name, { type: outputType, lastModified: Date.now() }));
+      }, outputType, quality);
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(file);
+    };
+
+    img.src = url;
+  });
+}
 
 // ─── Applications ─────────────────────────────────────────────────────────────
 
@@ -31,6 +152,16 @@ function _saveStore(rows) { saveLocal(STORE_KEY, rows); }
  * @returns {Promise<{data: object|null, error: object|null}>}
  */
 async function submitApplication(payload) {
+  const apiResult = await tryApi('/applications', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (apiResult.available) {
+    return { data: normalizeApplicationRecord(apiResult.data), error: apiResult.error };
+  }
+
   const sb = getSupabaseClient();
 
   const reference_number = generateReferenceNumber();
@@ -63,7 +194,7 @@ async function submitApplication(payload) {
       if (detErr) console.warn('Could not save application details:', detErr.message);
     }
 
-    return { data: appRow, error: null };
+    return { data: normalizeApplicationRecord(appRow), error: null };
   }
 
   // ── Demo / offline path ──
@@ -84,7 +215,7 @@ async function submitApplication(payload) {
   rows.push(row);
   _saveStore(rows);
 
-  return { data: row, error: null };
+  return { data: normalizeApplicationRecord(row), error: null };
 }
 
 /**
@@ -130,6 +261,11 @@ async function fetchApplications({ status, search, page = 1, perPage = 15 } = {}
  * @param {string} referenceNumber
  */
 async function fetchByReferenceNumber(referenceNumber) {
+  const apiResult = await tryApi(`/status?reference=${encodeURIComponent(referenceNumber.trim())}`);
+  if (apiResult.available) {
+    return { data: normalizeApplicationRecord(apiResult.data), error: apiResult.error };
+  }
+
   const sb = getSupabaseClient();
 
   if (sb) {
@@ -138,14 +274,14 @@ async function fetchByReferenceNumber(referenceNumber) {
       .select('*, application_details(*), uploaded_files(*), feedback(*)')
       .eq('reference_number', referenceNumber.trim().toUpperCase())
       .single();
-    return { data, error };
+    return { data: normalizeApplicationRecord(data), error };
   }
 
   // Demo path
   const rows = _loadStore();
   const row  = rows.find(r => r.reference_number.toUpperCase() === referenceNumber.trim().toUpperCase());
   if (!row) return { data: null, error: { message: 'Application not found.' } };
-  return { data: row, error: null };
+  return { data: normalizeApplicationRecord(row), error: null };
 }
 
 /**
@@ -161,14 +297,14 @@ async function fetchApplicationById(id) {
       .select('*, application_details(*), uploaded_files(*), feedback(*)')
       .eq('id', id)
       .single();
-    return { data, error };
+    return { data: normalizeApplicationRecord(data), error };
   }
 
   // Demo path
   const rows = _loadStore();
   const row  = rows.find(r => r.id === id);
   if (!row) return { data: null, error: { message: 'Not found.' } };
-  return { data: row, error: null };
+  return { data: normalizeApplicationRecord(row), error: null };
 }
 
 /**
@@ -365,19 +501,64 @@ async function deleteApplication(applicationId) {
  * @param {string} applicationId
  * @param {File}   file
  * @param {function(number):void} [onProgress]
+ * @param {{fieldName?: string}} [options]
  * @returns {Promise<{url: string|null, error: object|null}>}
  */
-async function uploadFile(applicationId, file, onProgress) {
+async function uploadFile(applicationId, file, onProgress, options = {}) {
+  const processedFile = await maybeCompressImage(file);
+  const fieldTag = options.fieldName ? `${options.fieldName}-` : '';
+  const storedFileName = `${fieldTag}${processedFile.name}`;
+
+  if (!ALLOWED_UPLOAD_MIME_TYPES.has(processedFile.type || '')) {
+    return { url: null, error: { message: 'Unsupported file type.' } };
+  }
+
+  const signResult = await tryApi('/uploads/sign', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      applicationId,
+      fileName: storedFileName,
+      fileType: processedFile.type,
+      fileSize: processedFile.size,
+    }),
+  });
+
+  if (signResult.available && !signResult.error) {
+    try {
+      await uploadViaSignedUrl(signResult.data.uploadUrl, processedFile, onProgress);
+      const completeResult = await tryApi('/uploads/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          applicationId,
+          fileName: storedFileName,
+          fileType: processedFile.type,
+          filePath: signResult.data.path,
+          publicUrl: signResult.data.publicUrl,
+        }),
+      });
+
+      if (completeResult.available && completeResult.error) {
+        return { url: null, error: completeResult.error };
+      }
+
+      return { url: signResult.data.publicUrl, error: null };
+    } catch (err) {
+      return { url: null, error: err || { message: 'Upload failed.' } };
+    }
+  }
+
   const sb = getSupabaseClient();
 
   if (sb) {
     const uniquePart = (typeof crypto !== 'undefined' && crypto.randomUUID)
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const path = `${applicationId}/${uniquePart}-${file.name}`;
+    const path = `${applicationId}/${uniquePart}-${storedFileName}`;
     const { data, error } = await sb.storage
       .from('applications')
-      .upload(path, file, { cacheControl: '3600', upsert: false });
+      .upload(path, processedFile, { cacheControl: '3600', upsert: false });
 
     if (error) return { url: null, error };
 
@@ -386,9 +567,9 @@ async function uploadFile(applicationId, file, onProgress) {
     // Record in uploaded_files table
     await sb.from('uploaded_files').insert({
       application_id: applicationId,
-      file_name:      file.name,
+      file_name:      storedFileName,
       file_url:       urlData.publicUrl,
-      file_type:      file.type,
+      file_type:      processedFile.type,
     });
 
     return { url: urlData.publicUrl, error: null };
@@ -409,9 +590,9 @@ async function uploadFile(applicationId, file, onProgress) {
           if (app) {
             app.files = app.files || [];
             app.files.push({
-              file_name: file.name,
+              file_name: storedFileName,
               file_url: reader.result,
-              file_type: file.type,
+              file_type: processedFile.type,
               category: 'receipt',
             });
             _saveStore(rows);
@@ -419,7 +600,7 @@ async function uploadFile(applicationId, file, onProgress) {
           resolve({ url: reader.result, error: null });
         };
         reader.onerror = () => resolve({ url: null, error: { message: 'FileReader error' } });
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(processedFile);
       }
     }, 200);
   });

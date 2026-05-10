@@ -59,6 +59,35 @@ rhu-sanitary-digitalization/
 
 > **Note:** Service edits made from the admin Services page are stored in the browser's localStorage in the current demo setup.
 
+### Phase 3 — Deploy on Vercel (Frontend + API Functions)
+
+This project now includes Vercel serverless backend endpoints under `api/` for:
+
+- `POST /api/applications` — create application + details
+- `GET /api/status?reference=...` — public status lookup
+- `POST /api/uploads/sign` — create signed upload URL for Supabase Storage
+- `POST /api/uploads/complete` — persist uploaded file metadata
+
+#### Vercel Environment Variables
+
+Set these in your Vercel project settings:
+
+```bash
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+```
+
+You can copy from `.env.example` as a template.
+
+#### Deploy Steps
+
+1. Push this repository to GitHub.
+2. Import the repository in Vercel.
+3. Add the environment variables above.
+4. Deploy.
+
+The frontend will call `/api/*` automatically in production. If API routes are unavailable (local static preview), the app falls back to existing Supabase/browser-demo paths.
+
 ### Phase 2 — Connect Supabase
 
 1. Create a free project at [supabase.com](https://supabase.com).
