@@ -22,6 +22,9 @@ const ALLOWED_UPLOAD_MIME_TYPES = new Set([
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]);
+const IMAGE_COMPRESSION_THRESHOLD_BYTES = 400 * 1024;
+const IMAGE_MAX_DIMENSION = 1400;
+const IMAGE_JPEG_QUALITY = 0.78;
 
 function _loadStore() { return loadLocal(STORE_KEY, []); }
 function _saveStore(rows) { saveLocal(STORE_KEY, rows); }
@@ -88,10 +91,10 @@ function uploadViaSignedUrl(uploadUrl, file, onProgress) {
   });
 }
 
-function maybeCompressImage(file) {
+function compressImageForUpload(file) {
   const isImage = (file?.type || '').startsWith('image/');
   const supported = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-  if (!isImage || !supported.includes(file.type) || file.size <= 900 * 1024) {
+  if (!isImage || !supported.includes(file.type) || file.size <= IMAGE_COMPRESSION_THRESHOLD_BYTES) {
     return Promise.resolve(file);
   }
 
@@ -100,8 +103,7 @@ function maybeCompressImage(file) {
     const url = URL.createObjectURL(file);
 
     img.onload = () => {
-      const maxDim = 1600;
-      const ratio = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const ratio = Math.min(1, IMAGE_MAX_DIMENSION / Math.max(img.width, img.height));
       const width = Math.max(1, Math.round(img.width * ratio));
       const height = Math.max(1, Math.round(img.height * ratio));
 
@@ -117,7 +119,7 @@ function maybeCompressImage(file) {
 
       ctx.drawImage(img, 0, 0, width, height);
       const outputType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
-      const quality = outputType === 'image/jpeg' ? 0.8 : undefined;
+      const quality = outputType === 'image/jpeg' ? IMAGE_JPEG_QUALITY : undefined;
 
       canvas.toBlob(blob => {
         URL.revokeObjectURL(url);
@@ -136,6 +138,41 @@ function maybeCompressImage(file) {
 
     img.src = url;
   });
+}
+
+function sanitizeFileNameSegment(value, fallback = 'document') {
+  const cleaned = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return cleaned || fallback;
+}
+
+function getFileExtension(file) {
+  const rawName = file?.name || '';
+  const idx = rawName.lastIndexOf('.');
+  const fromName = idx > -1 ? rawName.slice(idx + 1).toLowerCase() : '';
+  if (fromName) return fromName;
+
+  const byMimeType = {
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+    'application/pdf': 'pdf',
+    'application/msword': 'doc',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  };
+
+  return byMimeType[file?.type || ''] || 'bin';
+}
+
+function buildStoredFileName(applicationId, file, options = {}) {
+  const applicationTag = sanitizeFileNameSegment(options.referenceNumber || applicationId, 'application');
+  const documentTag = sanitizeFileNameSegment(options.fieldName, 'document');
+  const extension = getFileExtension(file);
+  return `${applicationTag}-${documentTag}-${Date.now()}.${extension}`;
 }
 
 // ─── Applications ─────────────────────────────────────────────────────────────
@@ -501,13 +538,12 @@ async function deleteApplication(applicationId) {
  * @param {string} applicationId
  * @param {File}   file
  * @param {function(number):void} [onProgress]
- * @param {{fieldName?: string}} [options]
+ * @param {{fieldName?: string, referenceNumber?: string}} [options]
  * @returns {Promise<{url: string|null, error: object|null}>}
  */
 async function uploadFile(applicationId, file, onProgress, options = {}) {
-  const processedFile = await maybeCompressImage(file);
-  const fieldTag = options.fieldName ? `${options.fieldName}-` : '';
-  const storedFileName = `${fieldTag}${processedFile.name}`;
+  const processedFile = await compressImageForUpload(file);
+  const storedFileName = buildStoredFileName(applicationId, processedFile, options);
 
   if (!ALLOWED_UPLOAD_MIME_TYPES.has(processedFile.type || '')) {
     return { url: null, error: { message: 'Unsupported file type.' } };

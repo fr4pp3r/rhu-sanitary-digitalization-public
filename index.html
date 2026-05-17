@@ -74,23 +74,27 @@
 
 <!-- ── Scripts ── -->
 <script type="module">
-  import { APPLICATION_TYPES } from './js/data.js';
+  import { getApplicationTypes, initServiceTypes } from './js/data.js';
   import { escapeHtml } from './js/utils.js';
 
   const grid = document.getElementById('types-grid');
   document.getElementById('year').textContent = new Date().getFullYear();
 
-  APPLICATION_TYPES.forEach(type => {
-    const card = document.createElement('a');
-    card.href      = `application.html?type=${encodeURIComponent(type.id)}`;
-    card.className = 'app-type-card';
-    card.innerHTML = `
-      <div class="icon">${escapeHtml(type.icon)}</div>
-      <h3>${escapeHtml(type.name)}</h3>
-      <p>${escapeHtml(type.description)}</p>
-    `;
-    grid.appendChild(card);
-  });
+  (async () => {
+    await initServiceTypes();
+    const serviceTypes = getApplicationTypes();
+    serviceTypes.forEach(type => {
+      const card = document.createElement('a');
+      card.href      = `application.html?type=${encodeURIComponent(type.id)}`;
+      card.className = 'app-type-card';
+      card.innerHTML = `
+        <div class="icon">${escapeHtml(type.icon)}</div>
+        <h3>${escapeHtml(type.name)}</h3>
+        <p>${escapeHtml(type.description)}</p>
+      `;
+      grid.appendChild(card);
+    });
+  })();
 </script>
 </body>
 </html>

@@ -181,6 +181,7 @@
 <script type="module">
 import { getSupabaseClient } from '../js/supabase.js';
 import {
+  initServiceTypes,
   getApplicationTypes,
   updateApplicationType,
   resetApplicationType,
@@ -224,6 +225,7 @@ const fields = {
     try { document.getElementById('admin-email').textContent = JSON.parse(demo).email + ' (demo)'; } catch { /* ignore */ }
   }
 
+  await initServiceTypes();
   renderPage();
   attachFormEvents();
 })();

@@ -67,7 +67,7 @@
 <script type="module">
 import { fetchByReferenceNumber } from './js/db.js';
 import { uploadFile } from './js/db.js';
-import { getApplicationTypeById, getApplicationTypeName } from './js/data.js';
+import { getApplicationTypeById, getApplicationTypeName, initServiceTypes } from './js/data.js';
 import { escapeHtml, formatDateTime, formatFileSize, fileIcon, getQueryParam, showToast } from './js/utils.js';
 
 document.getElementById('year').textContent = new Date().getFullYear();
@@ -80,9 +80,14 @@ const searchBtn = document.getElementById('btn-search');
 let currentApp = null;
 let receiptFile = null;
 
-// Auto-fill from URL param if present
-const preRef = getQueryParam('ref');
-if (preRef) { input.value = preRef; doSearch(preRef); }
+(async () => {
+  await initServiceTypes();
+  const preRef = getQueryParam('ref');
+  if (preRef) {
+    input.value = preRef;
+    doSearch(preRef);
+  }
+})();
 
 form.addEventListener('submit', e => {
   e.preventDefault();
@@ -368,7 +373,10 @@ async function uploadReceipt() {
   btn.disabled = true;
   btn.textContent = '⏳ Uploading…';
 
-  const { error } = await uploadFile(currentApp.id, receiptFile, undefined, { fieldName: 'receipt' });
+  const { error } = await uploadFile(currentApp.id, receiptFile, undefined, {
+    fieldName: 'receipt',
+    referenceNumber: currentApp.reference_number,
+  });
   if (error) {
     showToast(error.message || 'Failed to upload receipt.', 'danger');
     btn.disabled = false;

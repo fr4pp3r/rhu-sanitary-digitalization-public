@@ -54,19 +54,12 @@ create table if not exists public.feedback (
 create index if not exists idx_feedback_application_id
   on public.feedback (application_id);
 
--- ── Table: application_types (future use) ────────────────────
-create table if not exists public.application_types (
-  id          uuid  primary key default gen_random_uuid(),
-  name        text  not null,
-  description text  not null default ''
-);
-
--- ── Table: requirements (future use) ─────────────────────────
-create table if not exists public.requirements (
-  id                  uuid    primary key default gen_random_uuid(),
-  application_type_id uuid    not null references public.application_types(id) on delete cascade,
-  file_label          text    not null,
-  required            boolean not null default true
+-- ── Table: service_types ──────────────────────────────────────
+-- Stores editable service definitions used by the public and admin pages.
+create table if not exists public.service_types (
+  service_id  text        primary key,
+  definition  jsonb       not null,
+  updated_at  timestamptz not null default now()
 );
 
 -- ============================================================
@@ -77,6 +70,7 @@ alter table public.applications        enable row level security;
 alter table public.application_details enable row level security;
 alter table public.uploaded_files      enable row level security;
 alter table public.feedback            enable row level security;
+alter table public.service_types       enable row level security;
 
 -- ── Clients: can INSERT and read their own application by reference number ──
 
@@ -109,6 +103,11 @@ create policy "public_select_feedback"
   on public.feedback for select
   using (true);
 
+-- Public can read service definitions to render the latest details.
+create policy "public_select_service_types"
+  on public.service_types for select
+  using (true);
+
 -- ── Admins: full access via Supabase Auth (authenticated role) ──
 
 create policy "admin_all_applications"
@@ -131,6 +130,12 @@ create policy "admin_all_uploaded_files"
 
 create policy "admin_all_feedback"
   on public.feedback for all
+  to authenticated
+  using (true)
+  with check (true);
+
+create policy "admin_all_service_types"
+  on public.service_types for all
   to authenticated
   using (true)
   with check (true);

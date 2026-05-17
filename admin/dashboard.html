@@ -133,7 +133,7 @@
 <script type="module">
 import { getSupabaseClient } from '../js/supabase.js';
 import { fetchStats, fetchApplications } from '../js/db.js';
-import { getApplicationTypeName } from '../js/data.js';
+import { getApplicationTypeName, initServiceTypes } from '../js/data.js';
 import { escapeHtml, formatDateTime } from '../js/utils.js';
 
 // ── Auth guard ────────────────────────────────────────────────────────────────
@@ -151,6 +151,7 @@ import { escapeHtml, formatDateTime } from '../js/utils.js';
     } catch { /* ignore */ }
   }
 
+  await initServiceTypes();
   loadDashboard();
 })();
 

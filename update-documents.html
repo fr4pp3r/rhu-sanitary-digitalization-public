@@ -131,7 +131,7 @@
 
 <script type="module">
   import { fetchByReferenceNumber, uploadFile } from './js/db.js';
-  import { getApplicationTypeById } from './js/data.js';
+  import { getApplicationTypeById, initServiceTypes } from './js/data.js';
   import { fileIcon, formatFileSize } from './js/utils.js';
 
   const lookupForm = document.getElementById('lookup-form');
@@ -146,6 +146,7 @@
   let currentApplication = null;
   let pendingFilesByName = {}; // Track which files are pending
   const selectedFilesByField = {};
+  const serviceTypesReady = initServiceTypes();
 
   // ── Lookup Application ──
   lookupForm.addEventListener('submit', async (e) => {
@@ -154,6 +155,7 @@
     lookupLoading.style.display = 'block';
 
     try {
+      await serviceTypesReady;
       const refNum = referenceInput.value.trim();
       const { data, error } = await fetchByReferenceNumber(refNum);
 
@@ -430,7 +432,7 @@
           if (progressElem) {
             progressElem.textContent = `Uploading: ${progress}%`;
           }
-        }, { fieldName });
+        }, { fieldName, referenceNumber: currentApplication.reference_number });
 
         if (upErr) {
           failedCount++;

@@ -53,11 +53,11 @@ rhu-sanitary-digitalization/
 
 1. Clone or download this repository.
 2. Open `index.html` in any modern browser (or serve with a local HTTP server, e.g. `npx serve .`).
-3. All data is saved to **localStorage** — the app is fully functional without a Supabase account.
+3. Application/demo data is saved to **localStorage** when Supabase is not configured, so the app is still functional without a backend.
 
 > **Note:** ES module `import/export` requires a HTTP server. File-based `file://` protocol will not work for JS modules.
 
-> **Note:** Service edits made from the admin Services page are stored in the browser's localStorage in the current demo setup.
+> **Note:** Service definitions are loaded from Supabase (`service_types`) when available, with JavaScript defaults and localStorage fallback for offline/demo use.
 
 ### Phase 3 — Deploy on Vercel (Frontend + API Functions)
 
@@ -118,8 +118,7 @@ const SUPABASE_ANON = 'your-anon-public-key';
 | `application_details`  | Flexible key-value form field storage per application|
 | `uploaded_files`       | File metadata + Supabase Storage URLs                |
 | `feedback`             | Admin feedback messages per application              |
-| `application_types`    | (Future) dynamic application type config             |
-| `requirements`         | (Future) per-type required document definitions      |
+| `service_types`        | Editable service definitions used by public/admin UI |
 
 ### Supabase Storage
 

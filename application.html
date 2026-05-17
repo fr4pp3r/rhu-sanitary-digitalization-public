@@ -178,7 +178,7 @@
 <div id="toast-container" class="toast-container"></div>
 
 <script type="module">
-import { APPLICATION_TYPES }   from './js/data.js';
+import { getApplicationTypes, initServiceTypes } from './js/data.js';
 import { getQueryParam, formatFileSize, fileIcon, showToast, escapeHtml } from './js/utils.js';
 import { submitApplication, uploadFile } from './js/db.js';
 
@@ -190,20 +190,25 @@ const totalSteps = 4;
 const applicantData = {};
 const dynamicData   = {};
 const uploadedFiles = {};  // field_name → [{file, url}]
+let appType = null;
 
 // ── Locate application type ────────────────────────────────────────────────────
 const typeId = getQueryParam('type');
-const appType = APPLICATION_TYPES.find(t => t.id === typeId);
 const serviceOverview = document.getElementById('service-overview');
+(async () => {
+  await initServiceTypes();
+  appType = getApplicationTypes().find(t => t.id === typeId) || null;
 
-if (!appType) {
-  document.getElementById('page-title').textContent = 'Application Not Found';
-  document.getElementById('page-subtitle').textContent = 'The requested application type does not exist.';
-  serviceOverview.innerHTML = '';
-  document.getElementById('panel-1').innerHTML =
-    `<div class="alert alert-danger"><span class="alert-icon">❌</span>
-     Invalid application type. <a href="index.html">Go back to Home</a>.</div>`;
-} else {
+  if (!appType) {
+    document.getElementById('page-title').textContent = 'Application Not Found';
+    document.getElementById('page-subtitle').textContent = 'The requested application type does not exist.';
+    serviceOverview.innerHTML = '';
+    document.getElementById('panel-1').innerHTML =
+      `<div class="alert alert-danger"><span class="alert-icon">❌</span>
+      Invalid application type. <a href="index.html">Go back to Home</a>.</div>`;
+    return;
+  }
+
   document.title = `${appType.name} – NARRA MUNICIPAL HEALTH OFFICE Services Portal`;
   document.getElementById('page-title').textContent    = appType.name;
   document.getElementById('page-subtitle').textContent = appType.description;
@@ -211,7 +216,7 @@ if (!appType) {
   renderServiceOverview(appType);
   buildDynamicFields(appType);
   buildFileUploads(appType);
-}
+})();
 
 function renderServiceOverview(type) {
   const peso = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' });
@@ -561,7 +566,10 @@ document.getElementById('btn-submit').addEventListener('click', async () => {
       for (const fDef of appType.files) {
         const files = uploadedFiles[fDef.name] || [];
         for (const entry of files) {
-          const { url, error: upErr } = await uploadFile(appRecord.id, entry.file, undefined, { fieldName: fDef.name });
+          const { url, error: upErr } = await uploadFile(appRecord.id, entry.file, undefined, {
+            fieldName: fDef.name,
+            referenceNumber: appRecord.reference_number,
+          });
           if (upErr) {
             console.warn(`Failed to upload ${entry.file.name}:`, upErr.message);
           } else {
