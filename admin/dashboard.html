@@ -13,7 +13,7 @@
   <!-- ── Sidebar ── -->
   <aside class="sidebar">
     <div class="sidebar-brand">
-      <div class="brand-icon">🏥</div>
+      <img src="../assets/logo/Narra-MHO.png" alt="NARRA MHO" class="sidebar-logo" />
       <div>
         <div style="font-size:.9rem;">NARRA MHO Admin</div>
         <div style="font-size:.72rem;opacity:.7;">Services Portal</div>
@@ -44,6 +44,7 @@
   <!-- ── Main ── -->
   <div class="admin-main">
     <div class="admin-topbar">
+      <button id="sidebar-toggle" class="btn btn-outline btn-sm">☰</button>
       <h1>Dashboard</h1>
       <span id="admin-email" style="font-size:.88rem; color:var(--gray-600);"></span>
     </div>
@@ -203,5 +204,6 @@ document.getElementById('btn-logout').addEventListener('click', async () => {
   window.location.href = 'login.html';
 });
 </script>
+<script type="module" src="../js/site.js"></script>
 </body>
 </html>

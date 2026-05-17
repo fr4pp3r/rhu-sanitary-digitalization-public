@@ -13,7 +13,7 @@
   <!-- ── Sidebar ── -->
   <aside class="sidebar">
     <div class="sidebar-brand">
-      <div class="brand-icon">🏥</div>
+      <img src="../assets/logo/Narra-MHO.png" alt="NARRA MHO" class="sidebar-logo" />
       <div>
         <div style="font-size:.9rem;">NARRA MHO Admin</div>
         <div style="font-size:.72rem;opacity:.7;">Services Portal</div>
@@ -40,6 +40,7 @@
   <!-- ── Main ── -->
   <div class="admin-main">
     <div class="admin-topbar">
+      <button id="sidebar-toggle" class="btn btn-outline btn-sm">☰</button>
       <div style="display:flex;align-items:center;gap:.75rem;">
         <a href="applications.html" class="btn btn-outline btn-sm">← Back</a>
         <h1 id="page-title">Review Application</h1>
@@ -443,5 +444,6 @@ function showError(msg) {
   el.classList.remove('hidden');
 }
 </script>
+<script type="module" src="../js/site.js"></script>
 </body>
 </html>

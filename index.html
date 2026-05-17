@@ -12,9 +12,12 @@
 <header class="site-header">
   <nav class="navbar">
     <a href="index.html" class="navbar-brand">
-      <span class="logo-icon">🏥</span>
+      <img src="assets/logo/Narra-Logo.png" alt="NARRA Logo" class="logo-img" />
       <span>NARRA MUNICIPAL HEALTH OFFICE</span>
     </a>
+    <button class="nav-toggle" aria-label="Toggle menu" aria-expanded="false">
+      <span class="hamburger" aria-hidden="true"></span>
+    </button>
     <ul class="navbar-nav">
       <li><a href="index.html" class="active">Home</a></li>
       <li><a href="status.html">Track Application</a></li>
@@ -26,8 +29,13 @@
 
 <!-- ── Hero ── -->
 <section class="page-hero">
-  <h1>NARRA MUNICIPAL HEALTH OFFICE Services Portal</h1>
-  <p>Apply for sanitary and health-related services online. Select one of the available services below to get started.</p>
+  <div class="hero-content">
+    <img src="assets/logo/Narra-MHO.png" alt="NARRA MHO" class="hero-logo" />
+    <div>
+      <h1>NARRA MUNICIPAL HEALTH OFFICE Services Portal</h1>
+      <p>Apply for sanitary and health-related services online. Select one of the available services below to get started.</p>
+    </div>
+  </div>
 </section>
 
 <!-- ── Application Types ── -->
@@ -96,5 +104,6 @@
     });
   })();
 </script>
+<script type="module" src="js/site.js"></script>
 </body>
 </html>

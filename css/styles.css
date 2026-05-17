@@ -112,6 +112,15 @@ img { max-width: 100%; }
   flex-shrink: 0;
 }
 
+/* Image variants for brand/login logos */
+.navbar-brand .logo-img {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  flex-shrink: 0;
+}
+
 .navbar-nav {
   display: flex;
   align-items: center;
@@ -128,12 +137,75 @@ img { max-width: 100%; }
 .navbar-nav a:hover { color: var(--white); text-decoration: none; }
 .navbar-nav a.active { color: var(--white); border-bottom: 2px solid var(--accent); }
 
+/* Nav toggle (hamburger) */
+.nav-toggle {
+  display: none;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.08);
+  color: var(--white);
+  width: 40px;
+  height: 36px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.nav-toggle:focus { outline: 2px solid rgba(255,255,255,.12); box-shadow: 0 4px 10px rgba(0,0,0,.12); }
+.nav-toggle .hamburger {
+  position: relative;
+  width: 18px;
+  height: 2px;
+  background: currentColor;
+  display: inline-block;
+}
+.nav-toggle .hamburger::before,
+.nav-toggle .hamburger::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 18px;
+  height: 2px;
+  background: currentColor;
+}
+.nav-toggle .hamburger::before { top: -6px; }
+.nav-toggle .hamburger::after  { top: 6px; }
+
+/* Mobile dropdown when navbar has .open */
+.navbar.open .navbar-nav {
+  display: flex !important;
+  flex-direction: column;
+  position: absolute;
+  top: 100%; left: 0; right: 0;
+  background: var(--primary);
+  padding: 1rem;
+  gap: .75rem;
+  z-index: 9999;
+  box-shadow: 0 6px 18px rgba(0,0,0,.12);
+  border-top: 1px solid rgba(0,0,0,.06);
+}
+
 /* ── Hero / Page Header ── */
 .page-hero {
   background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
   color: var(--white);
   padding: 3rem 1.25rem 2.5rem;
   text-align: center;
+}
+.page-hero .hero-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  max-width: 1100px;
+  margin: 0 auto;
+  text-align: left;
+}
+.page-hero .hero-logo {
+  width: 84px;
+  height: 84px;
+  border-radius: 12px;
+  object-fit: cover;
+  flex-shrink: 0;
 }
 .page-hero h1 { font-size: 2rem; font-weight: 700; margin-bottom: .5rem; }
 .page-hero p { font-size: 1.05rem; opacity: .9; max-width: 600px; margin: 0 auto; }
@@ -568,6 +640,14 @@ tbody tr:hover { background: var(--gray-100); }
   flex-shrink: 0;
 }
 
+.sidebar-brand .sidebar-logo {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  object-fit: cover;
+  display: block;
+  flex-shrink: 0;
+}
+
 .sidebar-nav { padding: 1rem 0; flex: 1; }
 .sidebar-nav a {
   display: flex; align-items: center; gap: .75rem;
@@ -827,6 +907,13 @@ tbody tr:hover { background: var(--gray-100); }
   font-size: 2rem;
   margin-bottom: .75rem;
 }
+.login-logo .logo-img {
+  width: 70px; height: 70px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: inline-block;
+  margin-bottom: .75rem;
+}
 .login-logo h1 { font-size: 1.25rem; font-weight: 700; color: var(--primary); }
 .login-logo p  { font-size: .85rem; color: var(--gray-600); }
 
@@ -885,6 +972,8 @@ tbody tr:hover { background: var(--gray-100); }
 /* ── Responsive ── */
 @media (max-width: 768px) {
   .page-hero h1 { font-size: 1.5rem; }
+  .page-hero .hero-content { flex-direction: column; gap: .75rem; text-align: center; }
+  .page-hero .hero-logo { width: 64px; height: 64px; }
   .app-types-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: .85rem; }
   .app-type-card { padding: 1rem; }
   .app-type-card .icon { width: 48px; height: 48px; font-size: 1.3rem; }

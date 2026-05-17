@@ -12,9 +12,12 @@
 <header class="site-header">
   <nav class="navbar">
     <a href="index.html" class="navbar-brand">
-      <span class="logo-icon">🏥</span>
+      <img src="assets/logo/Narra-Logo.png" alt="NARRA Logo" class="logo-img" />
       <span>NARRA MUNICIPAL HEALTH OFFICE</span>
     </a>
+    <button class="nav-toggle" aria-label="Toggle menu" aria-expanded="false">
+      <span class="hamburger" aria-hidden="true"></span>
+    </button>
     <ul class="navbar-nav">
       <li><a href="index.html">Home</a></li>
       <li><a href="status.html">Track Application</a></li>
@@ -233,6 +236,9 @@ function renderServiceOverview(type) {
       const maxFee = Math.max(...amounts);
       feeText = `${peso.format(minFee)} - ${peso.format(maxFee)}`;
       feeNote = 'Final fee depends on establishment category.';
+      if (Object.prototype.hasOwnProperty.call(feeSchedule, 'Accommodation')) {
+        feeNote += ' Accommodation category is charged per room.';
+      }
       feeScheduleHtml = `<div style="margin-top:.65rem;font-size:.82rem;color:var(--gray-600);line-height:1.5;">
         <strong style="color:var(--gray-700);">Category Fee Schedule:</strong>
         ${entries.map(([category, amount]) => `${escapeHtml(category)} (${escapeHtml(peso.format(Number(amount)))})`).join(' • ')}
@@ -608,5 +614,6 @@ document.getElementById('btn-copy-ref').addEventListener('click', () => {
   );
 });
 </script>
+<script type="module" src="js/site.js"></script>
 </body>
 </html>

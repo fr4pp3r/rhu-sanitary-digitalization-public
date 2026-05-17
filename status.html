@@ -12,9 +12,12 @@
 <header class="site-header">
   <nav class="navbar">
     <a href="index.html" class="navbar-brand">
-      <span class="logo-icon">🏥</span>
+      <img src="assets/logo/Narra-Logo.png" alt="NARRA Logo" class="logo-img" />
       <span>NARRA MUNICIPAL HEALTH OFFICE</span>
     </a>
+    <button class="nav-toggle" aria-label="Toggle menu" aria-expanded="false">
+      <span class="hamburger" aria-hidden="true"></span>
+    </button>
     <ul class="navbar-nav">
       <li><a href="index.html">Home</a></li>
       <li><a href="status.html" class="active">Track Application</a></li>
@@ -157,6 +160,13 @@ function getServiceFeeText(appType, app) {
     if (entries.length > 0) {
       const category = getDetailValue(app, 'establishment_category');
       if (category && Number.isFinite(Number(feeSchedule[category]))) {
+        if (category === 'Accommodation') {
+          const roomCount = Number(getDetailValue(app, 'number_of_rooms'));
+          if (Number.isFinite(roomCount) && roomCount > 0) {
+            const total = Number(feeSchedule[category]) * roomCount;
+            return `${peso.format(total)} (${category}, ${roomCount} room${roomCount > 1 ? 's' : ''})`;
+          }
+        }
         return `${peso.format(Number(feeSchedule[category]))} (${category})`;
       }
 
@@ -388,5 +398,7 @@ async function uploadReceipt() {
   doSearch(input.value.trim());
 }
 </script>
+</script>
+<script type="module" src="js/site.js"></script>
 </body>
 </html>
