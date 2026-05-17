@@ -105,7 +105,7 @@
 <script type="module">
 import { getSupabaseClient } from '../js/supabase.js';
 import { fetchApplications } from '../js/db.js';
-import { getApplicationTypeName } from '../js/data.js';
+import { getApplicationTypeName, initServiceTypes } from '../js/data.js';
 import { escapeHtml, formatDateTime } from '../js/utils.js';
 
 const PER_PAGE = 15;
@@ -125,6 +125,7 @@ let currentSearch = '';
     if (!demo) { window.location.href = 'login.html'; return; }
     try { document.getElementById('admin-email').textContent = JSON.parse(demo).email + ' (demo)'; } catch { /* ignore */ }
   }
+  await initServiceTypes();
   loadApplications();
 })();
 

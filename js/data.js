@@ -3,9 +3,11 @@
  * Static data – application types, their required fields and file requirements.
  */
 
+import { getSupabaseClient } from './supabase.js';
 import { loadLocal, saveLocal } from './utils.js';
 
 const SERVICE_TYPES_STORAGE_KEY = 'rhu_service_types';
+const SERVICE_TYPES_TABLE = 'service_types';
 
 /** @type {Array<{id:string, name:string, icon:string, description:string, fields:Array, files:Array}>} */
 const DEFAULT_APPLICATION_TYPES = [
@@ -481,13 +483,89 @@ function loadServiceTypes() {
   return source.map(type => normalizeServiceType(type)).filter(Boolean);
 }
 
-function persistServiceTypes(types) {
+async function fetchServiceTypesFromSupabase() {
+  const sb = getSupabaseClient();
+  if (!sb) return null;
+
+  const { data, error } = await sb
+    .from(SERVICE_TYPES_TABLE)
+    .select('service_id, definition')
+    .order('service_id', { ascending: true });
+
+  if (error) {
+    console.warn('Could not load service types from Supabase:', error.message || error);
+    return null;
+  }
+
+  const rows = Array.isArray(data) ? data : [];
+  return rows
+    .map(row => normalizeServiceType({
+      ...(row?.definition || {}),
+      id: row?.service_id || row?.definition?.id,
+    }))
+    .filter(Boolean);
+}
+
+function mergeServiceTypes(remoteTypes) {
+  const byId = new Map((remoteTypes || []).map(type => [type.id, type]));
+  const mergedDefaults = DEFAULT_APPLICATION_TYPES.map(defaultType => {
+    const remoteType = byId.get(defaultType.id);
+    return normalizeServiceType(remoteType || defaultType, defaultType);
+  }).filter(Boolean);
+
+  const defaultIds = new Set(DEFAULT_APPLICATION_TYPES.map(type => type.id));
+  const extraTypes = (remoteTypes || []).filter(type => type?.id && !defaultIds.has(type.id));
+  return [...mergedDefaults, ...extraTypes];
+}
+
+async function syncServiceTypesToSupabase(types) {
+  const sb = getSupabaseClient();
+  if (!sb) return;
+
+  const rows = (types || [])
+    .filter(type => type?.id)
+    .map(type => ({
+      service_id: type.id,
+      definition: normalizeServiceType(type),
+    }));
+
+  if (!rows.length) return;
+
+  const { error } = await sb
+    .from(SERVICE_TYPES_TABLE)
+    .upsert(rows, { onConflict: 'service_id' });
+
+  if (error) {
+    console.warn('Could not sync service types to Supabase:', error.message || error);
+  }
+}
+
+function persistServiceTypes(types, { syncSupabase = false } = {}) {
   APPLICATION_TYPES = types.map(type => normalizeServiceType(type)).filter(Boolean);
   saveLocal(SERVICE_TYPES_STORAGE_KEY, APPLICATION_TYPES);
+  if (syncSupabase) {
+    void syncServiceTypesToSupabase(APPLICATION_TYPES);
+  }
   return APPLICATION_TYPES;
 }
 
 let APPLICATION_TYPES = loadServiceTypes();
+let serviceTypesInitPromise = null;
+
+function initServiceTypes() {
+  if (serviceTypesInitPromise) return serviceTypesInitPromise;
+
+  serviceTypesInitPromise = (async () => {
+    const remoteTypes = await fetchServiceTypesFromSupabase();
+    if (!Array.isArray(remoteTypes) || remoteTypes.length === 0) {
+      return getApplicationTypes();
+    }
+    persistServiceTypes(mergeServiceTypes(remoteTypes));
+    return getApplicationTypes();
+  })();
+
+  return serviceTypesInitPromise;
+}
 
 function humanizeTypeId(typeId) {
   if (!typeId) return '—';
@@ -523,7 +601,7 @@ function updateApplicationType(typeId, updates) {
 
   const nextTypes = APPLICATION_TYPES.slice();
   nextTypes[index] = nextType;
-  persistServiceTypes(nextTypes);
+  persistServiceTypes(nextTypes, { syncSupabase: true });
   return cloneServiceType(nextType);
 }
 
@@ -536,17 +614,18 @@ function resetApplicationType(typeId) {
 
   const nextTypes = APPLICATION_TYPES.slice();
   nextTypes[index] = normalizeServiceType(defaultType);
-  persistServiceTypes(nextTypes);
+  persistServiceTypes(nextTypes, { syncSupabase: true });
   return cloneServiceType(nextTypes[index]);
 }
 
 function resetAllApplicationTypes() {
-  persistServiceTypes(DEFAULT_APPLICATION_TYPES.map(type => normalizeServiceType(type)));
+  persistServiceTypes(DEFAULT_APPLICATION_TYPES.map(type => normalizeServiceType(type)), { syncSupabase: true });
   return getApplicationTypes();
 }
 
 export {
   APPLICATION_TYPES,
+  initServiceTypes,
   getApplicationTypes,
   getApplicationTypeById,
   getApplicationTypeName,

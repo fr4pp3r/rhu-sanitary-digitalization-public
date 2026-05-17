@@ -167,7 +167,7 @@
 <script type="module">
 import { getSupabaseClient } from '../js/supabase.js';
 import { fetchApplicationById, updateApplicationStatus, addFeedback, deleteApplicationFile, deleteApplication } from '../js/db.js';
-import { getApplicationTypeName } from '../js/data.js';
+import { getApplicationTypeName, initServiceTypes } from '../js/data.js';
 import { getQueryParam, escapeHtml, formatDateTime, showToast } from '../js/utils.js';
 
 let currentApp = null;
@@ -184,6 +184,7 @@ let currentApp = null;
     if (!demo) { window.location.href = 'login.html'; return; }
     try { document.getElementById('admin-email').textContent = JSON.parse(demo).email + ' (demo)'; } catch { /* ignore */ }
   }
+  await initServiceTypes();
 
   const id = getQueryParam('id');
   if (!id) {
