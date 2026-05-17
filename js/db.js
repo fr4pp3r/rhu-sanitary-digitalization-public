@@ -140,6 +140,41 @@ function compressImageForUpload(file) {
   });
 }
 
+function sanitizeFileNameSegment(value, fallback = 'document') {
+  const cleaned = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return cleaned || fallback;
+}
+
+function getFileExtension(file) {
+  const rawName = file?.name || '';
+  const idx = rawName.lastIndexOf('.');
+  const fromName = idx > -1 ? rawName.slice(idx + 1).toLowerCase() : '';
+  if (fromName) return fromName;
+
+  const byMimeType = {
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+    'application/pdf': 'pdf',
+    'application/msword': 'doc',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  };
+
+  return byMimeType[file?.type || ''] || 'bin';
+}
+
+function buildStoredFileName(applicationId, file, options = {}) {
+  const applicationTag = sanitizeFileNameSegment(options.referenceNumber || applicationId, 'application');
+  const documentTag = sanitizeFileNameSegment(options.fieldName, 'document');
+  const extension = getFileExtension(file);
+  return `${applicationTag}-${documentTag}-${Date.now()}.${extension}`;
+}
+
 // ─── Applications ─────────────────────────────────────────────────────────────
 
 /**
@@ -503,13 +538,12 @@ async function deleteApplication(applicationId) {
  * @param {string} applicationId
  * @param {File}   file
  * @param {function(number):void} [onProgress]
- * @param {{fieldName?: string}} [options]
+ * @param {{fieldName?: string, referenceNumber?: string}} [options]
  * @returns {Promise<{url: string|null, error: object|null}>}
  */
 async function uploadFile(applicationId, file, onProgress, options = {}) {
   const processedFile = await compressImageForUpload(file);
-  const fieldTag = options.fieldName ? `${options.fieldName}-` : '';
-  const storedFileName = `${fieldTag}${processedFile.name}`;
+  const storedFileName = buildStoredFileName(applicationId, processedFile, options);
 
   if (!ALLOWED_UPLOAD_MIME_TYPES.has(processedFile.type || '')) {
     return { url: null, error: { message: 'Unsupported file type.' } };

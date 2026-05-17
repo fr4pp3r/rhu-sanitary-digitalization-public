@@ -566,7 +566,10 @@ document.getElementById('btn-submit').addEventListener('click', async () => {
       for (const fDef of appType.files) {
         const files = uploadedFiles[fDef.name] || [];
         for (const entry of files) {
-          const { url, error: upErr } = await uploadFile(appRecord.id, entry.file, undefined, { fieldName: fDef.name });
+          const { url, error: upErr } = await uploadFile(appRecord.id, entry.file, undefined, {
+            fieldName: fDef.name,
+            referenceNumber: appRecord.reference_number,
+          });
           if (upErr) {
             console.warn(`Failed to upload ${entry.file.name}:`, upErr.message);
           } else {

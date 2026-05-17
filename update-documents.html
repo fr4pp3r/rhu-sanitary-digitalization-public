@@ -432,7 +432,7 @@
           if (progressElem) {
             progressElem.textContent = `Uploading: ${progress}%`;
           }
-        }, { fieldName });
+        }, { fieldName, referenceNumber: currentApplication.reference_number });
 
         if (upErr) {
           failedCount++;
