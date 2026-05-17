@@ -22,6 +22,9 @@ const ALLOWED_UPLOAD_MIME_TYPES = new Set([
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]);
+const IMAGE_COMPRESSION_THRESHOLD_BYTES = 400 * 1024;
+const IMAGE_MAX_DIMENSION = 1400;
+const IMAGE_JPEG_QUALITY = 0.78;
 
 function _loadStore() { return loadLocal(STORE_KEY, []); }
 function _saveStore(rows) { saveLocal(STORE_KEY, rows); }
@@ -88,10 +91,10 @@ function uploadViaSignedUrl(uploadUrl, file, onProgress) {
   });
 }
 
-function maybeCompressImage(file) {
+function compressImageForUpload(file) {
   const isImage = (file?.type || '').startsWith('image/');
   const supported = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-  if (!isImage || !supported.includes(file.type) || file.size <= 900 * 1024) {
+  if (!isImage || !supported.includes(file.type) || file.size <= IMAGE_COMPRESSION_THRESHOLD_BYTES) {
     return Promise.resolve(file);
   }
 
@@ -100,8 +103,7 @@ function maybeCompressImage(file) {
     const url = URL.createObjectURL(file);
 
     img.onload = () => {
-      const maxDim = 1600;
-      const ratio = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const ratio = Math.min(1, IMAGE_MAX_DIMENSION / Math.max(img.width, img.height));
       const width = Math.max(1, Math.round(img.width * ratio));
       const height = Math.max(1, Math.round(img.height * ratio));
 
@@ -117,7 +119,7 @@ function maybeCompressImage(file) {
 
       ctx.drawImage(img, 0, 0, width, height);
       const outputType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
-      const quality = outputType === 'image/jpeg' ? 0.8 : undefined;
+      const quality = outputType === 'image/jpeg' ? IMAGE_JPEG_QUALITY : undefined;
 
       canvas.toBlob(blob => {
         URL.revokeObjectURL(url);
@@ -505,7 +507,7 @@ async function deleteApplication(applicationId) {
  * @returns {Promise<{url: string|null, error: object|null}>}
  */
 async function uploadFile(applicationId, file, onProgress, options = {}) {
-  const processedFile = await maybeCompressImage(file);
+  const processedFile = await compressImageForUpload(file);
   const fieldTag = options.fieldName ? `${options.fieldName}-` : '';
   const storedFileName = `${fieldTag}${processedFile.name}`;
 
