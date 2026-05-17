@@ -8,6 +8,8 @@
 </head>
 <body>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <div class="admin-layout">
 
   <!-- ── Sidebar ── -->
@@ -95,27 +97,29 @@
         <div class="card">
           <div class="card-header">Edit Service</div>
           <div class="card-body">
+            <form id="service-form">
             <div class="editor-toolbar">
               <div>
                 <h2 id="editor-title">Select a service</h2>
                 <div style="font-size:.85rem;color:var(--gray-600);" id="editor-subtitle">Choose a service from the list to update its fee, requirements, workflow, and details.</div>
               </div>
-              <button class="btn btn-outline btn-sm" id="btn-reset-current" disabled>Restore This Service</button>
+              <button type="button" class="btn btn-outline btn-sm" id="btn-reset-current" disabled>Restore This Service</button>
             </div>
 
-            <form id="service-form" novalidate>
-              <input type="hidden" id="service-id" />
+            <div class="form-group">
+              <label for="service-id">Service ID</label>
+              <input type="text" id="service-id" class="form-control" readonly />
+            </div>
 
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="service-name">Service Name <span class="required">*</span></label>
-                  <input type="text" id="service-name" class="form-control" required />
-                </div>
-                <div class="form-group">
-                  <label for="service-icon">Icon / Symbol</label>
-                  <input type="text" id="service-icon" class="form-control" placeholder="e.g. 🛠️" />
-                </div>
-              </div>
+            <div class="form-group">
+              <label for="service-name">Service Name <span class="required">*</span></label>
+              <input type="text" id="service-name" class="form-control" required />
+            </div>
+
+            <div class="form-group">
+              <label for="service-icon">Icon / Symbol</label>
+              <input type="text" id="service-icon" class="form-control" placeholder="e.g. 🛠️" />
+            </div>
 
               <div class="form-group">
                 <label for="service-description">Description <span class="required">*</span></label>
@@ -216,15 +220,9 @@ const fields = {
 // ── Auth guard ────────────────────────────────────────────────────────────────
 (async () => {
   const sb = getSupabaseClient();
-  if (sb) {
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) { window.location.href = 'login.html'; return; }
-    document.getElementById('admin-email').textContent = session.user.email;
-  } else {
-    const demo = sessionStorage.getItem('rhu_admin_demo');
-    if (!demo) { window.location.href = 'login.html'; return; }
-    try { document.getElementById('admin-email').textContent = JSON.parse(demo).email + ' (demo)'; } catch { /* ignore */ }
-  }
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { window.location.href = 'login.html'; return; }
+  document.getElementById('admin-email').textContent = session.user.email;
 
   await initServiceTypes();
   renderPage();
@@ -458,7 +456,6 @@ function attachFormEvents() {
 document.getElementById('btn-logout').addEventListener('click', async () => {
   const sb = getSupabaseClient();
   if (sb) await sb.auth.signOut();
-  sessionStorage.removeItem('rhu_admin_demo');
   window.location.href = 'login.html';
 });
 </script>

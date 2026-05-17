@@ -6,8 +6,8 @@
  * Supabase project's Settings → API page.
  */
 
-const SUPABASE_URL  = 'https://your-project-ref.supabase.co';
-const SUPABASE_ANON = 'your-anon-public-key';
+const SUPABASE_URL  = 'https://smjgdtxbtktumtfxebkb.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNtamdkdHhidGt0dW10ZnhlYmtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwNDYyODEsImV4cCI6MjA5NDYyMjI4MX0.DFV3d-2CtIenOMlTVwgyl8TCWwqr-Dt5v8NP5VocopU';
 
 // Lazy-initialised singleton so every module shares the same client.
 let _client = null;

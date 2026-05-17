@@ -47,7 +47,9 @@ function normalizeApplicationRecord(record) {
 async function tryApi(path, options = {}) {
   try {
     const response = await fetch(`${API_BASE}${path}`, options);
-    if (response.status === 404) return { available: false, data: null, error: null };
+    if (response.status === 404 || response.status === 405) {
+      return { available: false, data: null, error: null };
+    }
 
     const isJson = (response.headers.get('content-type') || '').includes('application/json');
     const payload = isJson ? await response.json() : {};

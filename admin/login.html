@@ -8,6 +8,8 @@
 </head>
 <body>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <div class="login-page">
   <div class="login-card">
 
@@ -46,15 +48,6 @@
       </button>
     </form>
 
-    <!-- Demo hint (remove in production) -->
-    <div class="alert alert-info mt-4" style="font-size:.83rem;">
-      <span class="alert-icon">ℹ️</span>
-      <div>
-        <strong>Demo mode:</strong> Enter any email and password to log in.
-        Supabase Auth is used in production.
-      </div>
-    </div>
-
     <div style="text-align:center;margin-top:1rem;">
       <a href="../index.html" style="font-size:.88rem;color:var(--gray-600);">← Back to Client Portal</a>
     </div>
@@ -68,29 +61,35 @@
 import { getSupabaseClient } from '../js/supabase.js';
 import { showToast } from '../js/utils.js';
 
-const form    = document.getElementById('login-form');
+const form = document.getElementById('login-form');
 const btnLogin = document.getElementById('btn-login');
-const label   = document.getElementById('login-label');
+const label = document.getElementById('login-label');
 const alertEl = document.getElementById('login-alert');
 
-// Toggle password visibility
 document.getElementById('toggle-pw').addEventListener('click', () => {
   const pw = document.getElementById('password');
   pw.type = pw.type === 'password' ? 'text' : 'password';
 });
 
-form.addEventListener('submit', async e => {
-  e.preventDefault();
+form.addEventListener('submit', async event => {
+  event.preventDefault();
 
-  const email    = document.getElementById('email').value.trim();
+  const email = document.getElementById('email').value.trim();
   const password = document.getElementById('password').value;
 
-  // Simple presence validation
   let ok = true;
-  if (!email)    { document.getElementById('err-email').classList.add('visible');    ok = false; }
-  else             document.getElementById('err-email').classList.remove('visible');
-  if (!password) { document.getElementById('err-password').classList.add('visible'); ok = false; }
-  else             document.getElementById('err-password').classList.remove('visible');
+  if (!email) {
+    document.getElementById('err-email').classList.add('visible');
+    ok = false;
+  } else {
+    document.getElementById('err-email').classList.remove('visible');
+  }
+  if (!password) {
+    document.getElementById('err-password').classList.add('visible');
+    ok = false;
+  } else {
+    document.getElementById('err-password').classList.remove('visible');
+  }
   if (!ok) return;
 
   btnLogin.disabled = true;
@@ -98,19 +97,18 @@ form.addEventListener('submit', async e => {
   alertEl.classList.add('hidden');
 
   const sb = getSupabaseClient();
-
-  if (sb) {
-    const { error } = await sb.auth.signInWithPassword({ email, password });
-    if (error) {
-      showLoginError(error.message || 'Invalid credentials.');
-      return;
-    }
-    window.location.href = 'dashboard.html';
-  } else {
-    // Demo / offline mode: accept any credentials
-    sessionStorage.setItem('rhu_admin_demo', JSON.stringify({ email, loginAt: Date.now() }));
-    window.location.href = 'dashboard.html';
+  if (!sb) {
+    showLoginError('Supabase Auth is not available in this browser session.');
+    return;
   }
+
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) {
+    showLoginError(error.message || 'Invalid credentials.');
+    return;
+  }
+
+  window.location.href = 'dashboard.html';
 });
 
 function showLoginError(msg) {

@@ -8,6 +8,8 @@
 </head>
 <body>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <div class="admin-layout">
 
   <!-- ── Sidebar ── -->
@@ -140,17 +142,9 @@ import { escapeHtml, formatDateTime } from '../js/utils.js';
 // ── Auth guard ────────────────────────────────────────────────────────────────
 (async () => {
   const sb = getSupabaseClient();
-  if (sb) {
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) { window.location.href = 'login.html'; return; }
-    document.getElementById('admin-email').textContent = session.user.email;
-  } else {
-    const demo = sessionStorage.getItem('rhu_admin_demo');
-    if (!demo) { window.location.href = 'login.html'; return; }
-    try {
-      document.getElementById('admin-email').textContent = JSON.parse(demo).email + ' (demo)';
-    } catch { /* ignore */ }
-  }
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { window.location.href = 'login.html'; return; }
+  document.getElementById('admin-email').textContent = session.user.email;
 
   await initServiceTypes();
   loadDashboard();
@@ -200,7 +194,6 @@ function statusBadge(status) {
 document.getElementById('btn-logout').addEventListener('click', async () => {
   const sb = getSupabaseClient();
   if (sb) await sb.auth.signOut();
-  sessionStorage.removeItem('rhu_admin_demo');
   window.location.href = 'login.html';
 });
 </script>

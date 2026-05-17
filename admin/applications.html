@@ -8,6 +8,8 @@
 </head>
 <body>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <div class="admin-layout">
 
   <!-- ── Sidebar ── -->
@@ -101,31 +103,23 @@
 
 </div><!-- /.admin-layout -->
 
-<div id="toast-container" class="toast-container"></div>
-
 <script type="module">
 import { getSupabaseClient } from '../js/supabase.js';
 import { fetchApplications } from '../js/db.js';
 import { getApplicationTypeName, initServiceTypes } from '../js/data.js';
 import { escapeHtml, formatDateTime } from '../js/utils.js';
 
-const PER_PAGE = 15;
-let currentPage = 1;
-let currentStatus = 'all';
 let currentSearch = '';
+let currentStatus = 'all';
+let currentPage = 1;
+const PER_PAGE = 15;
 
 // ── Auth guard ────────────────────────────────────────────────────────────────
 (async () => {
   const sb = getSupabaseClient();
-  if (sb) {
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) { window.location.href = 'login.html'; return; }
-    document.getElementById('admin-email').textContent = session.user.email;
-  } else {
-    const demo = sessionStorage.getItem('rhu_admin_demo');
-    if (!demo) { window.location.href = 'login.html'; return; }
-    try { document.getElementById('admin-email').textContent = JSON.parse(demo).email + ' (demo)'; } catch { /* ignore */ }
-  }
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { window.location.href = 'login.html'; return; }
+  document.getElementById('admin-email').textContent = session.user.email;
   await initServiceTypes();
   loadApplications();
 })();
@@ -135,15 +129,18 @@ async function loadApplications() {
   document.getElementById('app-tbody').innerHTML =
     `<tr><td colspan="7" style="text-align:center;color:var(--gray-500);padding:2rem;">Loading…</td></tr>`;
 
-  const { data: apps } = await fetchApplications({
-    status:  currentStatus,
-    search:  currentSearch,
-    page:    currentPage,
-    perPage: PER_PAGE,
-  });
-
   const tbody = document.getElementById('app-tbody');
   const info  = document.getElementById('results-info');
+
+  try {
+    const { data: apps, error } = await fetchApplications({
+      status:  currentStatus,
+      search:  currentSearch,
+      page:    currentPage,
+      perPage: PER_PAGE,
+    });
+
+    if (error) throw error;
 
   if (!apps || apps.length === 0) {
     tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--gray-500);padding:2rem;">No applications found.</td></tr>`;
@@ -167,6 +164,11 @@ async function loadApplications() {
 
   info.textContent = `Showing ${apps.length} result(s)`;
   renderPagination(apps.length);
+  } catch (error) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--danger);padding:2rem;">Could not load applications.</td></tr>`;
+    info.textContent = error?.message || '';
+    document.getElementById('pagination').innerHTML = '';
+  }
 }
 
 function renderPagination(count) {
@@ -223,7 +225,6 @@ document.getElementById('search-input').addEventListener('keydown', e => {
 document.getElementById('btn-logout').addEventListener('click', async () => {
   const sb = getSupabaseClient();
   if (sb) await sb.auth.signOut();
-  sessionStorage.removeItem('rhu_admin_demo');
   window.location.href = 'login.html';
 });
 </script>
