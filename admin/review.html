@@ -102,7 +102,7 @@
           <!-- Right column: Actions -->
           <div class="review-actions" style="position:sticky;top:1.5rem;">
             <div class="card" style="margin-bottom:1.25rem;">
-              <div class="card-header">🛠️ Update Status</div>
+              <div class="card-header">🛠️ Update Status & Feedback</div>
               <div class="card-body">
                 <div class="form-group">
                   <label for="status-select">Application Status</label>
@@ -114,19 +114,12 @@
                     <option value="needs_revision">📝 Needs Revision</option>
                   </select>
                 </div>
-                <button class="btn btn-primary btn-block" id="btn-update-status">Update Status</button>
-              </div>
-            </div>
-
-            <div class="card" style="margin-bottom:1.25rem;">
-              <div class="card-header">💬 Add Feedback</div>
-              <div class="card-body">
-                <div class="form-group">
-                  <label for="feedback-input">Message to Applicant</label>
+                <div class="form-group" style="margin-top:.75rem;margin-bottom:.85rem;">
+                  <label for="feedback-input">Message to Applicant (optional)</label>
                   <textarea id="feedback-input" class="form-control" rows="4"
                             placeholder="Enter feedback or instructions for the applicant…"></textarea>
                 </div>
-                <button class="btn btn-primary btn-block" id="btn-add-feedback">Send Feedback</button>
+                <button class="btn btn-primary btn-block" id="btn-update">Update</button>
               </div>
             </div>
 
@@ -307,42 +300,46 @@ function statusBadge(status, size) {
   return `<span class="badge ${cls}" style="${style}">${label}</span>`;
 }
 
-// ── Update status ─────────────────────────────────────────────────────────────
-document.getElementById('btn-update-status').addEventListener('click', () => {
+// ── Update status + feedback (merged) ─────────────────────────────────────────
+document.getElementById('btn-update').addEventListener('click', () => {
   const newStatus = document.getElementById('status-select').value;
-  openModal(
-    'Update Status',
-    `Change application status to <strong>${newStatus.replace(/_/g,' ')}</strong>?`,
-    async () => {
-      const { error } = await updateApplicationStatus(currentApp.id, newStatus);
-      if (error) { showToast('Failed to update status.', 'danger'); return; }
+  const msg = document.getElementById('feedback-input').value.trim();
+
+  let body = `Change application status to <strong>${newStatus.replace(/_/g,' ')}</strong>?`;
+  if (msg) {
+    body += `<br><br>And send the following message to the applicant:<br><div style="background:var(--gray-100);padding:.5rem;border-radius:6px;margin-top:.5rem;">${escapeHtml(msg)}</div>`;
+  }
+
+  openModal('Confirm Update', body, async () => {
+    const btn = document.getElementById('btn-update');
+    btn.disabled = true;
+    btn.textContent = '⏳ Updating…';
+
+    try {
+      const { error: statusError } = await updateApplicationStatus(currentApp.id, newStatus);
+      if (statusError) { showToast('Failed to update status.', 'danger'); return; }
+
       currentApp.status = newStatus;
       document.getElementById('status-badge-wrap').innerHTML = statusBadge(newStatus, 'lg');
-      showToast('Status updated successfully.', 'success');
+
+      if (msg) {
+        const { data, error: fbError } = await addFeedback(currentApp.id, msg);
+        if (fbError) {
+          showToast('Status updated but failed to send feedback.', 'warning');
+        } else {
+          currentApp.feedback = currentApp.feedback || [];
+          currentApp.feedback.push(data);
+          renderFeedback(currentApp.feedback);
+          document.getElementById('feedback-input').value = '';
+        }
+      }
+
+      showToast('Update successful.', 'success');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Update';
     }
-  );
-});
-
-// ── Add feedback ──────────────────────────────────────────────────────────────
-document.getElementById('btn-add-feedback').addEventListener('click', async () => {
-  const msg = document.getElementById('feedback-input').value.trim();
-  if (!msg) { showToast('Please enter a feedback message.', 'warning'); return; }
-
-  const btn = document.getElementById('btn-add-feedback');
-  btn.disabled = true;
-  btn.textContent = '⏳ Sending…';
-
-  const { data, error } = await addFeedback(currentApp.id, msg);
-  btn.disabled = false;
-  btn.textContent = 'Send Feedback';
-
-  if (error) { showToast('Failed to save feedback.', 'danger'); return; }
-
-  currentApp.feedback = currentApp.feedback || [];
-  currentApp.feedback.push(data);
-  renderFeedback(currentApp.feedback);
-  document.getElementById('feedback-input').value = '';
-  showToast('Feedback sent successfully.', 'success');
+  });
 });
 
 // ── Delete file ──────────────────────────────────────────────────────────────
