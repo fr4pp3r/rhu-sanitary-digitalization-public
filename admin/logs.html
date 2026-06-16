@@ -63,6 +63,40 @@
     </div>
 
     <div class="admin-content">
+      <style>
+        .log-entry-summary { cursor: pointer; }
+        .log-entry-summary:hover { background: rgba(0,0,0,0.03); }
+        .log-toggle-icon {
+          display: inline-block;
+          width: 1.2em;
+          text-align: center;
+          transition: transform 0.2s ease;
+          font-size: 0.8rem;
+          color: var(--gray-500);
+        }
+        .log-entry-expanded .log-toggle-icon {
+          transform: rotate(90deg);
+        }
+        .log-detail-row {
+          display: none;
+        }
+        .log-entry-expanded + .log-detail-row {
+          display: table-row;
+        }
+        .log-detail-cell {
+          padding: 0.75rem 1rem !important;
+          background: var(--gray-50);
+          border-top: 1px solid var(--gray-200);
+        }
+        .log-detail-cell pre {
+          margin: 0;
+          white-space: pre-wrap;
+          word-break: break-word;
+          font-size: 0.85rem;
+          max-height: 300px;
+          overflow-y: auto;
+        }
+      </style>
       <div class="card">
         <div class="card-body" style="padding:0;">
           <div class="table-wrap">
@@ -73,15 +107,14 @@
                   <th>Actor</th>
                   <th>Reference #</th>
                   <th>Action</th>
-                  <th>Details</th>
                 </tr>
               </thead>
               <tbody id="logs-body">
-                <tr><td colspan="5" style="text-align:center;color:var(--gray-500);padding:2rem;">Loading…</td></tr>
+                <tr><td colspan="4" style="text-align:center;color:var(--gray-500);padding:2rem;">Loading…</td></tr>
               </tbody>
             </table>
           <!-- pagination controls -->
-          <div class="log-pagination" style="margin-top:1rem;padding-bottom:0.5rem;display:flex;align-items:center;justify-content:center;gap:0.5rem;width:100%;">
+          <div class="log-pagination" style="margin-top:1rem;padding-bottom:1.0rem;display:flex;align-items:center;justify-content:center;gap:0.5rem;width:100%;">
             <button id="prevPage" class="btn btn-outline btn-sm" disabled>Prev</button>
             <span id="pageInfo">Page 1</span>
             <button id="nextPage" class="btn btn-outline btn-sm">Next</button>
@@ -192,21 +225,32 @@ function setupLogFilters() {
 setupLogFilters();
 
 // Render logs with optional filters
-function renderLogs(logs) {
-  const tbody = document.getElementById('logs-body');
-  if (!logs || logs.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--gray-500);">No logs recorded.</td></tr>`;
-    return;
+ function renderLogs(logs) {
+    const tbody = document.getElementById('logs-body');
+    if (!logs || logs.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--gray-500);">No logs
+  recorded.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = logs.map(l => `
+      <!-- Summary row – clickable -->
+      <tr class="log-entry-summary">
+        <td><span class="log-toggle-icon">&#9654;</span> ${formatDateTime(l.created_at)}</td>
+        <td>${escapeHtml(l.actor_type)}: ${escapeHtml(l.actor_identifier)}</td>
+        <td>${l.reference_number ? `<code>${escapeHtml(l.reference_number)}</code>` : ''}</td>
+        <td>${escapeHtml(l.action)}</td>
+      </tr>
+      <!-- Detail row – hidden by default -->
+      <tr class="log-detail-row">
+        <td colspan="4" class="log-detail-cell"><pre>${escapeHtml(JSON.stringify(l.details, null, 2))}</pre></td>
+      </tr>`).join('');
+
+    // Attach toggle handler to each summary row
+    tbody.querySelectorAll('tr.log-entry-summary').forEach(row => {
+      row.addEventListener('click', () => row.classList.toggle('log-entry-expanded'));
+    });
   }
-  tbody.innerHTML = logs.map(l => `
-    <tr>
-      <td>${formatDateTime(l.created_at)}</td>
-      <td>${escapeHtml(l.actor_type)}: ${escapeHtml(l.actor_identifier)}</td>
-      <td>${l.reference_number ? `<code>${escapeHtml(l.reference_number)}</code>` : ''}</td>
-      <td>${escapeHtml(l.action)}</td>
-      <td><pre style="margin:0;white-space:pre-wrap;">${escapeHtml(JSON.stringify(l.details, null, 2))}</pre></td>
-    </tr>`).join('');
-}
 
 document.getElementById('btn-logout').addEventListener('click', async () => {
   const sb = getSupabaseClient();

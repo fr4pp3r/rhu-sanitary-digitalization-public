@@ -5,6 +5,7 @@
 
 import { getSupabaseClient } from './supabase.js';
 import { loadLocal, saveLocal } from './utils.js';
+import { logAdminAction } from './db.js';
 
 const SERVICE_TYPES_STORAGE_KEY = 'rhu_service_types';
 const SERVICE_TYPES_TABLE = 'service_types';
