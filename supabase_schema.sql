@@ -62,6 +62,22 @@ create table if not exists public.service_types (
   updated_at  timestamptz not null default now()
 );
 
+-- ── Table: logs ───────────────────────────────────────────────
+-- Stores audit trail of admin and applicant actions.
+create table if not exists public.logs (
+  id               uuid         primary key default gen_random_uuid(),
+  actor_type       text         not null check (actor_type in ('admin','applicant')),
+  actor_identifier text         not null,
+  reference_number text,
+  action           text         not null,
+  details          jsonb        default '{}'::jsonb,
+  created_at       timestamptz  not null default now()
+);
+
+-- Optional: index on created_at for faster recent logs retrieval
+create index if not exists idx_logs_created_at
+  on public.logs (created_at desc);
+
 -- ============================================================
 -- Row-Level Security (RLS)
 -- ============================================================
@@ -71,6 +87,7 @@ alter table public.application_details enable row level security;
 alter table public.uploaded_files      enable row level security;
 alter table public.feedback            enable row level security;
 alter table public.service_types       enable row level security;
+alter table public.logs             enable row level security;
 
 -- ── Clients: can INSERT and read their own application by reference number ──
 
@@ -136,6 +153,12 @@ create policy "admin_all_feedback"
 
 create policy "admin_all_service_types"
   on public.service_types for all
+  to authenticated
+  using (true)
+  with check (true);
+
+create policy "admin_all_logs"
+  on public.logs for all
   to authenticated
   using (true)
   with check (true);

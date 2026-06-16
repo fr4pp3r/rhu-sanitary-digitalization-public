@@ -719,6 +719,8 @@ function getApplicationTypes() {
 }
 
 function updateApplicationType(typeId, updates) {
+  // Log admin service update
+  logAdminAction('Updated service type', { serviceId: typeId, updates });
   const index = APPLICATION_TYPES.findIndex(type => type.id === typeId);
   if (index === -1) return null;
 

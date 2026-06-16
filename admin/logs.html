@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Logs – NARRA MUNICIPAL HEALTH OFFICE Admin</title>
+  <link rel="stylesheet" href="../css/styles.css" />
+</head>
+<body>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<div class="admin-layout">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <img src="../assets/logo/Narra-MHO.png" alt="NARRA MHO" class="sidebar-logo" />
+      <div>
+        <div style="font-size:.9rem;">NARRA MHO Admin</div>
+        <div style="font-size:.72rem;opacity:.7;">Services Portal</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html">
+        <span class="nav-icon">📊</span>
+        <span class="nav-label">Dashboard</span>
+      </a>
+      <a href="applications.html">
+        <span class="nav-icon">📋</span>
+        <span class="nav-label">Applications</span>
+      </a>
+      <a href="services.html">
+        <span class="nav-icon">🛠️</span>
+        <span class="nav-label">Services</span>
+      </a>
+      <a href="logs.html" class="active">
+        <span class="nav-icon">📜</span>
+        <span class="nav-label">Logs</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="btn btn-outline btn-sm btn-block" id="btn-logout"
+              style="color:#fff;border-color:rgba(255,255,255,.5);">
+        Sign Out
+      </button>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <div class="admin-main">
+    <div class="admin-topbar">
+      <button id="sidebar-toggle" class="btn btn-outline btn-sm">☰</button>
+      <h1>Activity Logs</h1>
+      <span id="admin-email" style="font-size:.88rem; color:var(--gray-600);"></span>
+    </div>
+
+    <div class="admin-content">
+      <div class="card">
+        <div class="card-body" style="padding:0;">
+          <div class="table-wrap">
+            <table id="logs-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Actor</th>
+                  <th>Reference #</th>
+                  <th>Action</th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody id="logs-body">
+                <tr><td colspan="5" style="text-align:center;color:var(--gray-500);padding:2rem;">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /.admin-main -->
+
+</div><!-- /.admin-layout -->
+
+<div id="toast-container" class="toast-container"></div>
+
+<script type="module">
+import { getSupabaseClient } from '../js/supabase.js';
+import { fetchLogs } from '../js/db.js';
+import { escapeHtml, formatDateTime, showToast } from '../js/utils.js';
+
+// Auth guard
+(async () => {
+  const sb = getSupabaseClient();
+  const { data: { session } } = await sb?.auth?.getSession() ?? {};
+  if (!session) { window.location.href = 'login.html'; return; }
+  document.getElementById('admin-email').textContent = session.user.email;
+  loadLogs();
+})();
+
+async function loadLogs() {
+  const tbody = document.getElementById('logs-body');
+  const { data: logs, error } = await fetchLogs({ perPage: 100 }); // show recent 100
+  if (error) {
+    showToast('Failed to load logs.', 'danger');
+    tbody.innerHTML = `<tr><td colspan="5" style="color:var(--danger);text-align:center;">Error loading logs.</td></tr>`;
+    return;
+  }
+  if (!logs || logs.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--gray-500);">No logs recorded.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = logs.map(l => `
+    <tr>
+      <td>${formatDateTime(l.created_at)}</td>
+      <td>${escapeHtml(l.actor_type)}: ${escapeHtml(l.actor_identifier)}</td>
+      <td>${l.reference_number ? `<code>${escapeHtml(l.reference_number)}</code>` : ''}</td>
+      <td>${escapeHtml(l.action)}</td>
+      <td><pre style="margin:0;white-space:pre-wrap;">${escapeHtml(JSON.stringify(l.details, null, 2))}</pre></td>
+    </tr>`).join('');
+}
+
+document.getElementById('btn-logout').addEventListener('click', async () => {
+  const sb = getSupabaseClient();
+  if (sb) await sb.auth.signOut();
+  window.location.href = 'login.html';
+});
+</script>
+<script type="module" src="../js/site.js"></script>
+</body>
+</html>

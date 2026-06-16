@@ -29,6 +29,105 @@ const IMAGE_JPEG_QUALITY = 0.78;
 function _loadStore() { return loadLocal(STORE_KEY, []); }
 function _saveStore(rows) { saveLocal(STORE_KEY, rows); }
 
+// Logs store key for offline mode
+const LOGS_KEY = 'rhu_logs';
+function _loadLogs() { return loadLocal(LOGS_KEY, []); }
+function _saveLogs(logs) { saveLocal(LOGS_KEY, logs); }
+
+/**
+ * Log an admin action.
+ * @param {string} action - Short description of action.
+ * @param {object} [details] - Additional context stored as JSON.
+ */
+async function logAdminAction(action, details = {}) {
+  const sb = getSupabaseClient();
+  const { data: { session } } = await sb?.auth?.getSession() ?? {};
+  const actor = session?.user?.email || 'unknown';
+  const payload = {
+    actor_type: 'admin',
+    actor_identifier: actor,
+    action,
+    details,
+  };
+
+  if (sb) {
+    const { error } = await sb.from('logs').insert(payload);
+    return { error };
+  }
+
+  const logs = _loadLogs();
+  logs.push({
+    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+    created_at: new Date().toISOString(),
+    ...payload,
+  });
+  _saveLogs(logs);
+  return { error: null };
+}
+
+/**
+ * Log a public/applicant action.
+ * @param {string} action - Description.
+ * @param {string} applicantName - Name of applicant.
+ * @param {string} [referenceNumber] - Reference number if applicable.
+ * @param {object} [details] - Extra data.
+ */
+async function logPublicAction(action, applicantName, referenceNumber = null, details = {}) {
+  // Try server‑side logging via Vercel API first
+  try {
+    const resp = await fetch(`${API_BASE}/logs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, applicantName, referenceNumber, details }),
+    });
+    if (!resp.ok) {
+      console.warn('logPublicAction failed (vercel endpoint):', resp.status);
+    }
+  } catch (e) {
+    console.warn('logPublicAction network error:', e);
+  }
+
+  // Fallback to local demo storage (unchanged behaviour)
+  const sb = getSupabaseClient();
+  if (sb) {
+    // client with anon key cannot insert, so we silently ignore errors
+    return { error: null };
+  }
+
+  const logs = _loadLogs();
+  logs.push({
+    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+    created_at: new Date().toISOString(),
+    actor_type: 'applicant',
+    actor_identifier: applicantName,
+    reference_number: referenceNumber,
+    action,
+    details,
+  });
+  _saveLogs(logs);
+  return { error: null };
+}
+
+/**
+ * Fetch logs for admin view.
+ * @param {object} opts - Options: { page=1, perPage=20 }
+ */
+async function fetchLogs({ page = 1, perPage = 20 } = {}) {
+  const sb = getSupabaseClient();
+  if (sb) {
+    const { data, error } = await sb
+      .from('logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range((page - 1) * perPage, page * perPage - 1);
+    return { data, error };
+  }
+
+  const all = _loadLogs().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  const slice = all.slice((page - 1) * perPage, page * perPage);
+  return { data: slice, error: null };
+}
+
 function normalizeApplicationRecord(record) {
   if (!record || typeof record !== 'object') return record;
   const uploaded = Array.isArray(record.uploaded_files)
@@ -191,6 +290,9 @@ function buildStoredFileName(applicationId, file, options = {}) {
  * @returns {Promise<{data: object|null, error: object|null}>}
  */
 async function submitApplication(payload) {
+  // Log public submission after successful insert
+  // (log after handling Supabase or demo path)
+
   const apiResult = await tryApi('/applications', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -198,6 +300,10 @@ async function submitApplication(payload) {
   });
 
   if (apiResult.available) {
+    const reference_number = apiResult.data?.reference_number || generateReferenceNumber();
+    await logPublicAction('Submitted application', payload.applicant_name, reference_number, { application_type: payload.application_type }).catch(err => {
+      console.warn('Failed to log public action:', err);
+    });
     return { data: normalizeApplicationRecord(apiResult.data), error: apiResult.error };
   }
 
@@ -233,6 +339,7 @@ async function submitApplication(payload) {
       if (detErr) console.warn('Could not save application details:', detErr.message);
     }
 
+    await logPublicAction('Submitted application', payload.applicant_name, reference_number, { application_type: payload.application_type });
     return { data: normalizeApplicationRecord(appRow), error: null };
   }
 
@@ -254,6 +361,7 @@ async function submitApplication(payload) {
   rows.push(row);
   _saveStore(rows);
 
+  await logPublicAction('Submitted application', payload.applicant_name, reference_number, { application_type: payload.application_type });
   return { data: normalizeApplicationRecord(row), error: null };
 }
 
@@ -320,6 +428,7 @@ async function fetchByReferenceNumber(referenceNumber) {
   const rows = _loadStore();
   const row  = rows.find(r => r.reference_number.toUpperCase() === referenceNumber.trim().toUpperCase());
   if (!row) return { data: null, error: { message: 'Application not found.' } };
+  await logPublicAction('Submitted application', payload.applicant_name, reference_number, { application_type: payload.application_type });
   return { data: normalizeApplicationRecord(row), error: null };
 }
 
@@ -343,6 +452,7 @@ async function fetchApplicationById(id) {
   const rows = _loadStore();
   const row  = rows.find(r => r.id === id);
   if (!row) return { data: null, error: { message: 'Not found.' } };
+  await logPublicAction('Submitted application', payload.applicant_name, reference_number, { application_type: payload.application_type });
   return { data: normalizeApplicationRecord(row), error: null };
 }
 
@@ -352,6 +462,8 @@ async function fetchApplicationById(id) {
  * @param {'pending'|'for_payment'|'approved'|'rejected'|'needs_revision'} status
  */
 async function updateApplicationStatus(id, status) {
+  // Log admin status change after successful update
+
   const sb = getSupabaseClient();
 
   if (sb) {
@@ -361,6 +473,11 @@ async function updateApplicationStatus(id, status) {
       .eq('id', id)
       .select()
       .single();
+    // Log admin status change
+    // Retrieve reference number for logging
+  const { data: appRec } = await fetchApplicationById(id);
+  const refNum = appRec?.reference_number || null;
+  await logAdminAction(`Updated application status to ${status}`, { reference_number: refNum, newStatus: status });
     return { data, error };
   }
 
@@ -379,6 +496,8 @@ async function updateApplicationStatus(id, status) {
  * @param {string} message
  */
 async function addFeedback(applicationId, message) {
+  // Log admin feedback addition
+  await logAdminAction('Added feedback', { applicationId, message });
   const sb = getSupabaseClient();
 
   if (sb) {
@@ -424,59 +543,71 @@ function extractStoragePathFromPublicUrl(publicUrl) {
  * @returns {Promise<{data: object|null, error: object|null}>}
  */
 async function deleteApplicationFile(applicationId, fileRecord) {
+  // Log admin file deletion after successful removal
+  // Log admin file deletion after successful removal
+
   const sb = getSupabaseClient();
 
-  if (sb) {
-    const fileUrl = fileRecord?.file_url || null;
-    const filePath = extractStoragePathFromPublicUrl(fileUrl);
+if (sb) {
+      const fileUrl = fileRecord?.file_url || null;
+      const filePath = extractStoragePathFromPublicUrl(fileUrl);
 
-    if (filePath) {
-      const { error: storageErr } = await sb.storage.from('applications').remove([filePath]);
-      if (storageErr) {
-        console.warn('Storage file remove warning:', storageErr.message);
+      if (filePath) {
+        const { error: storageErr } = await sb.storage.from('applications').remove([filePath]);
+        if (storageErr) {
+          console.warn('Storage file remove warning:', storageErr.message);
+        }
       }
-    }
 
-    if (fileRecord?.id) {
-      const { data, error } = await sb
+      if (fileRecord?.id) {
+        const { data, error } = await sb
+          .from('uploaded_files')
+          .delete()
+          .eq('id', fileRecord.id)
+          .select()
+          .single();
+        // Log admin file deletion
+        const { data: appRec } = await fetchApplicationById(applicationId);
+      const refNum = appRec?.reference_number || null;
+      await logAdminAction('Deleted uploaded file', { reference_number: refNum, file_name: fileRecord?.file_name || fileRecord?.file_url });
+        return { data, error };
+      }
+
+      const query = sb
         .from('uploaded_files')
         .delete()
-        .eq('id', fileRecord.id)
-        .select()
-        .single();
-      return { data, error };
+        .eq('application_id', applicationId)
+        .eq('file_name', fileRecord?.file_name || '');
+
+      if (fileUrl) query.eq('file_url', fileUrl);
+
+      const { data, error } = await query.select();
+      const row = Array.isArray(data) ? data[0] || null : data || null;
+      // Log admin file deletion (by name)
+      await logAdminAction('Deleted uploaded file', { applicationId, fileName: fileRecord?.file_name });
+      return { data: row, error };
     }
 
-    const query = sb
-      .from('uploaded_files')
-      .delete()
-      .eq('application_id', applicationId)
-      .eq('file_name', fileRecord?.file_name || '');
+    // Demo path
+    const rows = _loadStore();
+    const app = rows.find(r => r.id === applicationId);
+    if (!app) return { data: null, error: { message: 'Application not found.' } };
 
-    if (fileUrl) query.eq('file_url', fileUrl);
+    app.files = app.files || [];
+    const idx = app.files.findIndex(f =>
+      (fileRecord?.file_url && f.file_url === fileRecord.file_url) ||
+      (fileRecord?.file_name && f.file_name === fileRecord.file_name)
+    );
 
-    const { data, error } = await query.select();
-    const row = Array.isArray(data) ? data[0] || null : data || null;
-    return { data: row, error };
+    if (idx === -1) return { data: null, error: { message: 'File not found.' } };
+
+    const [removed] = app.files.splice(idx, 1);
+    _saveStore(rows);
+    // Log admin file deletion in demo mode
+    await logAdminAction('Deleted uploaded file (demo)', { applicationId, fileName: removed.file_name });
+    return { data: removed, error: null };
   }
 
-  // Demo path
-  const rows = _loadStore();
-  const app = rows.find(r => r.id === applicationId);
-  if (!app) return { data: null, error: { message: 'Application not found.' } };
-
-  app.files = app.files || [];
-  const idx = app.files.findIndex(f =>
-    (fileRecord?.file_url && f.file_url === fileRecord.file_url) ||
-    (fileRecord?.file_name && f.file_name === fileRecord.file_name)
-  );
-
-  if (idx === -1) return { data: null, error: { message: 'File not found.' } };
-
-  const [removed] = app.files.splice(idx, 1);
-  _saveStore(rows);
-  return { data: removed, error: null };
-}
 
 /**
  * Delete an entire application and related records.
@@ -485,7 +616,18 @@ async function deleteApplicationFile(applicationId, fileRecord) {
  * @returns {Promise<{data: object|null, error: object|null}>}
  */
 async function deleteApplication(applicationId) {
+  // Log admin application deletion after successful removal
   const sb = getSupabaseClient();
+  // Retrieve reference number for logging
+  let reference_number = null;
+  if (sb) {
+    const { data: appRec, error: appErr } = await sb.from('applications').select('reference_number').eq('id', applicationId).single();
+    if (!appErr && appRec) reference_number = appRec.reference_number;
+  } else {
+    const rows = _loadStore();
+    const app = rows.find(r => r.id === applicationId);
+    if (app) reference_number = app.reference_number;
+  }
 
   if (sb) {
     const { data: fileRows, error: fileFetchErr } = await sb
@@ -518,6 +660,7 @@ async function deleteApplication(applicationId) {
     const firstErr = upFilesRes.error || detailsRes.error || feedbackRes.error || appRes.error;
     if (firstErr) return { data: null, error: firstErr };
 
+    await logAdminAction('Deleted application', { reference_number });
     return { data: appRes.data || { id: applicationId }, error: null };
   }
 
@@ -683,7 +826,7 @@ async function fetchStats() {
   };
 }
 
-export {
+export { fetchLogs, logAdminAction, logPublicAction,
   submitApplication,
   fetchApplications,
   fetchByReferenceNumber,
