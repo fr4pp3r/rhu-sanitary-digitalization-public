@@ -52,6 +52,13 @@
     <div class="admin-topbar">
       <button id="sidebar-toggle" class="btn btn-outline btn-sm">☰</button>
       <h1>Activity Logs</h1>
+      <div class="log-filters" style="margin-bottom:1rem;display:flex;align-items:center;gap:0.5rem;">
+        <input type="text" id="searchInput" placeholder="Search logs..." style="padding:0.3rem;flex:1;"/>
+        <select id="actionFilter" style="padding:0.3rem;">
+          <option value="">All Actions</option>
+          <option value="Submitted application">Submitted application</option>
+        </select>
+      </div>
       <span id="admin-email" style="font-size:.88rem; color:var(--gray-600);"></span>
     </div>
 
@@ -73,6 +80,12 @@
                 <tr><td colspan="5" style="text-align:center;color:var(--gray-500);padding:2rem;">Loading…</td></tr>
               </tbody>
             </table>
+          <!-- pagination controls -->
+          <div class="log-pagination" style="margin-top:1rem;padding-bottom:0.5rem;display:flex;align-items:center;justify-content:center;gap:0.5rem;width:100%;">
+            <button id="prevPage" class="btn btn-outline btn-sm" disabled>Prev</button>
+            <span id="pageInfo">Page 1</span>
+            <button id="nextPage" class="btn btn-outline btn-sm">Next</button>
+          </div>
           </div>
         </div>
       </div>
@@ -98,14 +111,89 @@ import { escapeHtml, formatDateTime, showToast } from '../js/utils.js';
   loadLogs();
 })();
 
+let allLogs = [];
 async function loadLogs() {
-  const tbody = document.getElementById('logs-body');
   const { data: logs, error } = await fetchLogs({ perPage: 100 }); // show recent 100
   if (error) {
     showToast('Failed to load logs.', 'danger');
-    tbody.innerHTML = `<tr><td colspan="5" style="color:var(--danger);text-align:center;">Error loading logs.</td></tr>`;
     return;
   }
+  if (!logs || logs.length === 0) {
+    renderLogs([]);
+    return;
+  }
+  // store for filtering
+  allLogs = logs;
+  applyFilters();
+}
+
+let currentPage = 1;
+const PAGE_SIZE = 20;
+function applyFilters() {
+  const searchTerm = document.getElementById('searchInput')?.value?.toLowerCase() || '';
+  const actionVal = document.getElementById('actionFilter')?.value || '';
+  const filtered = allLogs.filter(l => {
+    const matchesAction = actionVal === '' || l.action === actionVal;
+    const searchable = `${l.created_at} ${l.actor_type} ${l.actor_identifier} ${l.reference_number || ''} ${l.action} ${JSON.stringify(l.details)}`.toLowerCase();
+    const matchesSearch = searchable.includes(searchTerm);
+    return matchesAction && matchesSearch;
+  });
+  // pagination slice
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const pageSlice = filtered.slice(start, start + PAGE_SIZE);
+  renderLogs(pageSlice);
+  // update pagination UI
+  document.getElementById('pageInfo').textContent = `Page ${currentPage}`;
+  document.getElementById('prevPage').disabled = currentPage === 1;
+  document.getElementById('nextPage').disabled = start + PAGE_SIZE >= filtered.length;
+}
+
+function setupLogFilters() {
+  const searchInput = document.getElementById('searchInput');
+  const actionFilter = document.getElementById('actionFilter');
+  const prevBtn = document.getElementById('prevPage');
+  const nextBtn = document.getElementById('nextPage');
+
+  if (searchInput && !searchInput.dataset.bound) {
+    searchInput.dataset.bound = 'true';
+    searchInput.addEventListener('input', () => {
+      currentPage = 1;
+      applyFilters();
+    });
+  }
+
+  if (actionFilter && !actionFilter.dataset.bound) {
+    actionFilter.dataset.bound = 'true';
+    actionFilter.addEventListener('change', () => {
+      currentPage = 1;
+      applyFilters();
+    });
+  }
+
+  if (prevBtn && !prevBtn.dataset.bound) {
+    prevBtn.dataset.bound = 'true';
+    prevBtn.addEventListener('click', () => {
+      if (currentPage > 1) {
+        currentPage--;
+        applyFilters();
+      }
+    });
+  }
+
+  if (nextBtn && !nextBtn.dataset.bound) {
+    nextBtn.dataset.bound = 'true';
+    nextBtn.addEventListener('click', () => {
+      currentPage++;
+      applyFilters();
+    });
+  }
+}
+
+setupLogFilters();
+
+// Render logs with optional filters
+function renderLogs(logs) {
+  const tbody = document.getElementById('logs-body');
   if (!logs || logs.length === 0) {
     tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--gray-500);">No logs recorded.</td></tr>`;
     return;
