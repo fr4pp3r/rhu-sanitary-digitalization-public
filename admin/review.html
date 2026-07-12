@@ -170,8 +170,9 @@
 <script type="module">
 import { getSupabaseClient } from '../js/supabase.js';
 import { fetchApplicationById, updateApplicationStatus, addFeedback, deleteApplicationFile, deleteApplication } from '../js/db.js';
-import { getApplicationTypeName, initServiceTypes } from '../js/data.js';
+import { getApplicationTypeById, getApplicationTypeName, initServiceTypes } from '../js/data.js';
 import { getQueryParam, escapeHtml, formatDateTime, showToast } from '../js/utils.js';
+import { describeFee } from '../js/fees.js';
 
 let currentApp = null;
 
@@ -211,6 +212,7 @@ function renderApplication(app) {
   document.title = `Review ${app.reference_number} – NARRA MUNICIPAL HEALTH OFFICE Admin`;
   document.getElementById('page-title').textContent = `Review: ${app.reference_number}`;
   document.getElementById('ref-num').textContent    = app.reference_number;
+  const feeText = getReviewFeeText(app);
 
   // Status badge
   document.getElementById('status-badge-wrap').innerHTML = statusBadge(app.status, 'lg');
@@ -221,6 +223,7 @@ function renderApplication(app) {
     ['Applicant Name',    app.applicant_name],
     ['Contact Info',      app.contact_info || '—'],
     ['Application Type',  getApplicationTypeName(app.application_type)],
+    ['Service Fee',       feeText],
     ['Date Submitted',    formatDateTime(app.created_at)],
   ];
   document.getElementById('meta-fields').innerHTML = meta.map(([l, v]) => `
@@ -252,6 +255,30 @@ function renderApplication(app) {
     </div>`;
   } else {
     detailsEl.innerHTML = `<p style="color:var(--gray-500);font-size:.9rem;">No additional details available.</p>`;
+  }
+
+  function getReviewFeeText(app) {
+    const peso = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' });
+    if (Number.isFinite(Number(app?.fee_amount))) {
+      const amountText = peso.format(Number(app.fee_amount));
+      return app?.fee_category ? `${amountText} (${String(app.fee_category)})` : amountText;
+    }
+
+    const appType = getApplicationTypeById(app?.application_type);
+    if (!appType) return '—';
+    const details = {};
+    if (Array.isArray(app?.application_details)) {
+      app.application_details.forEach(detail => {
+        if (!detail?.field_name || !detail?.field_value) return;
+        details[detail.field_name] = detail.field_value;
+      });
+    }
+    if (app?.details && typeof app.details === 'object') {
+      Object.assign(details, app.details);
+    }
+    const derivedFee = describeFee(appType, details, peso);
+    if (derivedFee === '—') return '—';
+    return `${derivedFee} (derived from current pricing)`;
   }
 
   // Uploaded files

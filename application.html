@@ -186,6 +186,7 @@
 import { getApplicationTypes, initServiceTypes } from './js/data.js';
 import { getQueryParam, formatFileSize, fileIcon, showToast, escapeHtml } from './js/utils.js';
 import { submitApplication, uploadFile } from './js/db.js';
+import { computeFeeSnapshot, normalizeFeeSchedule, supportsCategoryFees } from './js/fees.js';
 
 document.getElementById('year').textContent = new Date().getFullYear();
 
@@ -225,27 +226,23 @@ const serviceOverview = document.getElementById('service-overview');
 
 function renderServiceOverview(type) {
   const peso = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' });
-  const feeSchedule = type.fee_by_category && typeof type.fee_by_category === 'object' ? type.fee_by_category : null;
+  const feeSchedule = normalizeFeeSchedule(type.fee_by_category);
+  const entries = Object.entries(feeSchedule);
   let feeText = typeof type.fee === 'number' ? peso.format(type.fee) : '—';
-  let feeNote = '';
+  let feeNote = supportsCategoryFees(type) ? 'Select establishment category to see the exact fee.' : '';
   let feeScheduleHtml = '';
 
-  if (feeSchedule) {
-    const entries = Object.entries(feeSchedule).filter(([, amount]) => Number.isFinite(Number(amount)));
-    if (entries.length > 0) {
-      const amounts = entries.map(([, amount]) => Number(amount));
+  if (entries.length > 0) {
+    const amounts = entries.map(([, amount]) => Number(amount));
+    if (supportsCategoryFees(type)) {
       const minFee = Math.min(...amounts);
       const maxFee = Math.max(...amounts);
       feeText = `${peso.format(minFee)} - ${peso.format(maxFee)}`;
-      feeNote = 'Final fee depends on establishment category.';
-      if (Object.prototype.hasOwnProperty.call(feeSchedule, 'Accommodation')) {
-        feeNote += ' Accommodation category is charged per room.';
-      }
-      feeScheduleHtml = `<div style="margin-top:.65rem;font-size:.82rem;color:var(--gray-600);line-height:1.5;">
-        <strong style="color:var(--gray-700);">Category Fee Schedule:</strong>
-        ${entries.map(([category, amount]) => `${escapeHtml(category)} (${escapeHtml(peso.format(Number(amount)))})`).join(' • ')}
-      </div>`;
     }
+    feeScheduleHtml = `<div style="margin-top:.65rem;font-size:.82rem;color:var(--gray-600);line-height:1.5;">
+      <strong style="color:var(--gray-700);">Category Fee Schedule:</strong>
+      ${entries.map(([category, amount]) => `${escapeHtml(category)} (${escapeHtml(peso.format(Number(amount)))})`).join(' • ')}
+    </div>`;
   }
 
   const requirementsHtml = (type.requirements || []).map(req => `<li>${escapeHtml(req)}</li>`).join('');
@@ -257,8 +254,8 @@ function renderServiceOverview(type) {
         <div style="display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;align-items:flex-start;margin-bottom:1rem;">
           <div>
             <div style="font-size:.82rem;color:var(--gray-500);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.25rem;">Service Fee</div>
-            <div style="font-size:1.35rem;font-weight:800;color:var(--primary);">${escapeHtml(feeText)}</div>
-            ${feeNote ? `<div style="font-size:.82rem;color:var(--gray-600);margin-top:.3rem;">${escapeHtml(feeNote)}</div>` : ''}
+            <div id="service-fee-display" style="font-size:1.35rem;font-weight:800;color:var(--primary);">${escapeHtml(feeText)}</div>
+            <div id="service-fee-note" style="font-size:.82rem;color:var(--gray-600);margin-top:.3rem;">${escapeHtml(feeNote)}</div>
             ${feeScheduleHtml}
           </div>
           <div class="badge badge-approved" style="font-size:.9rem;">Ready for submission</div>
@@ -280,6 +277,52 @@ function renderServiceOverview(type) {
         </div>
       </div>
     </div>`;
+
+  updateServiceFeePreview();
+}
+
+function getCurrentDynamicDetails() {
+  const details = {};
+  if (!appType || !Array.isArray(appType.fields)) return details;
+
+  appType.fields.forEach(field => {
+    const input = document.getElementById(`df-${field.name}`);
+    const value = input ? String(input.value || '').trim() : String(dynamicData[field.name] || '').trim();
+    if (value) details[field.name] = value;
+  });
+
+  return details;
+}
+
+function updateServiceFeePreview() {
+  if (!appType) return;
+  const feeDisplay = document.getElementById('service-fee-display');
+  const feeNote = document.getElementById('service-fee-note');
+  if (!feeDisplay || !feeNote) return;
+
+  const peso = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' });
+  const details = getCurrentDynamicDetails();
+  const snapshot = computeFeeSnapshot(appType, details);
+  const schedule = normalizeFeeSchedule(appType.fee_by_category);
+  const entries = Object.entries(schedule);
+
+  if (snapshot.amount !== null) {
+    feeDisplay.textContent = peso.format(snapshot.amount);
+    feeNote.textContent = snapshot.category
+      ? `Final fee based on selected category: ${snapshot.category}.`
+      : '';
+    return;
+  }
+
+  if (supportsCategoryFees(appType) && entries.length > 0) {
+    const amounts = entries.map(([, amount]) => amount);
+    feeDisplay.textContent = `${peso.format(Math.min(...amounts))} - ${peso.format(Math.max(...amounts))}`;
+    feeNote.textContent = 'Select establishment category to see the exact fee.';
+    return;
+  }
+
+  feeDisplay.textContent = typeof appType.fee === 'number' ? peso.format(appType.fee) : '—';
+  feeNote.textContent = '';
 }
 
 function goToStep(n) {
@@ -357,7 +400,14 @@ function buildDynamicFields(type) {
     group.innerHTML = `<label for="df-${escapeHtml(f.name)}">${labelText}</label>${input}
                        <div class="form-error" id="df-err-${escapeHtml(f.name)}">This field is required.</div>`;
     container.appendChild(group);
+    const dynamicInput = group.querySelector('input, select, textarea');
+    if (dynamicInput) {
+      dynamicInput.addEventListener('input', updateServiceFeePreview);
+      dynamicInput.addEventListener('change', updateServiceFeePreview);
+    }
   });
+
+  updateServiceFeePreview();
 }
 
 document.getElementById('btn-back-1').addEventListener('click', () => goToStep(1));
@@ -560,11 +610,14 @@ document.getElementById('btn-submit').addEventListener('click', async () => {
 
   try {
     // 1. Submit application record
+    const feeSnapshot = computeFeeSnapshot(appType, dynamicData);
     const { data: appRecord, error: appErr } = await submitApplication({
       applicant_name:   applicantData.applicant_name,
       contact_info:     applicantData.contact_number,
       application_type: appType ? appType.id : 'unknown',
       details: { ...applicantData, ...dynamicData },
+      fee_amount: feeSnapshot.amount,
+      fee_category: feeSnapshot.category,
     });
 
     if (appErr) throw new Error(appErr.message || 'Submission failed.');

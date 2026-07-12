@@ -74,6 +74,7 @@ import { fetchByReferenceNumber } from './js/db.js';
 import { uploadFile } from './js/db.js';
 import { getApplicationTypeById, getApplicationTypeName, initServiceTypes } from './js/data.js';
 import { escapeHtml, formatDateTime, formatFileSize, fileIcon, getQueryParam, showToast } from './js/utils.js';
+import { describeFee, normalizeFeeSchedule, supportsCategoryFees } from './js/fees.js';
 
 document.getElementById('year').textContent = new Date().getFullYear();
 
@@ -151,30 +152,30 @@ function getDetailValue(app, fieldName) {
 
 function getServiceFeeText(appType, app) {
   const peso = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' });
+
+  if (Number.isFinite(Number(app?.fee_amount))) {
+    const amountText = peso.format(Number(app.fee_amount));
+    if (app?.fee_category) {
+      return `${amountText} (${String(app.fee_category)})`;
+    }
+    return amountText;
+  }
+
   if (!appType) return '—';
 
-  const feeSchedule = appType.fee_by_category && typeof appType.fee_by_category === 'object'
-    ? appType.fee_by_category
-    : null;
+  const details = {
+    establishment_category: getDetailValue(app, 'establishment_category'),
+  };
+  const fallbackText = describeFee(appType, details, peso);
 
-  if (feeSchedule) {
-    const entries = Object.entries(feeSchedule).filter(([, amount]) => Number.isFinite(Number(amount)));
-    if (entries.length > 0) {
-      const category = getDetailValue(app, 'establishment_category');
-      if (category && Number.isFinite(Number(feeSchedule[category]))) {
-        if (category === 'Accommodation') {
-          const roomCount = Number(getDetailValue(app, 'number_of_rooms'));
-          if (Number.isFinite(roomCount) && roomCount > 0) {
-            const total = Number(feeSchedule[category]) * roomCount;
-            return `${peso.format(total)} (${category}, ${roomCount} room${roomCount > 1 ? 's' : ''})`;
-          }
-        }
-        return `${peso.format(Number(feeSchedule[category]))} (${category})`;
-      }
+  if (fallbackText !== '—') {
+    return `${fallbackText} (derived from current pricing)`;
+  }
 
-      const amounts = entries.map(([, amount]) => Number(amount));
-      return `${peso.format(Math.min(...amounts))} - ${peso.format(Math.max(...amounts))}`;
-    }
+  const scheduleEntries = Object.entries(normalizeFeeSchedule(appType.fee_by_category));
+  if (supportsCategoryFees(appType) && scheduleEntries.length > 0) {
+    const amounts = scheduleEntries.map(([, amount]) => amount);
+    return `${peso.format(Math.min(...amounts))} - ${peso.format(Math.max(...amounts))}`;
   }
 
   return typeof appType.fee === 'number' ? peso.format(appType.fee) : '—';

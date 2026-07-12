@@ -137,6 +137,10 @@ function normalizeApplicationRecord(record) {
       : [];
   return {
     ...record,
+    fee_amount: record.fee_amount === null || record.fee_amount === undefined
+      ? null
+      : (Number.isFinite(Number(record.fee_amount)) ? Number(record.fee_amount) : null),
+    fee_category: record.fee_category ? String(record.fee_category) : null,
     uploaded_files: uploaded,
     files: uploaded,
     feedback: Array.isArray(record.feedback) ? record.feedback : [],
@@ -286,6 +290,8 @@ function buildStoredFileName(applicationId, file, options = {}) {
  *   contact_info:   string,
  *   application_type: string,
  *   details: Record<string, string>,
+ *   fee_amount?: number|null,
+ *   fee_category?: string|null,
  * }} payload
  * @returns {Promise<{data: object|null, error: object|null}>}
  */
@@ -320,6 +326,8 @@ async function submitApplication(payload) {
         applicant_name:   payload.applicant_name,
         contact_info:     payload.contact_info,
         application_type: payload.application_type,
+        fee_amount: Number.isFinite(Number(payload.fee_amount)) ? Number(payload.fee_amount) : null,
+        fee_category: payload.fee_category ? String(payload.fee_category) : null,
         status:           'pending',
       })
       .select()
@@ -350,6 +358,8 @@ async function submitApplication(payload) {
     applicant_name:   payload.applicant_name,
     contact_info:     payload.contact_info,
     application_type: payload.application_type,
+    fee_amount: Number.isFinite(Number(payload.fee_amount)) ? Number(payload.fee_amount) : null,
+    fee_category: payload.fee_category ? String(payload.fee_category) : null,
     status:           'pending',
     created_at:       new Date().toISOString(),
     details:          payload.details || {},

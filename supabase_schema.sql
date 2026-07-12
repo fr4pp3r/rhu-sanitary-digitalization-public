@@ -13,10 +13,15 @@ create table if not exists public.applications (
   applicant_name   text         not null,
   contact_info     text         not null,
   application_type text         not null,
+  fee_amount       numeric(12,2),
+  fee_category     text,
   status           text         not null default 'pending'
                                 check (status in ('pending','for_payment','approved','rejected','needs_revision')),
   created_at       timestamptz  not null default now()
 );
+
+alter table public.applications add column if not exists fee_amount numeric(12,2);
+alter table public.applications add column if not exists fee_category text;
 
 -- ── Table: application_details ───────────────────────────────
 -- Flexible key-value rows for different application types
