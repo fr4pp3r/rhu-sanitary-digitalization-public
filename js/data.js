@@ -6,6 +6,7 @@
 import { getSupabaseClient } from './supabase.js';
 import { loadLocal, saveLocal } from './utils.js';
 import { logAdminAction } from './db.js';
+import { normalizeFeeSchedule } from './fees.js';
 
 const SERVICE_TYPES_STORAGE_KEY = 'rhu_service_types';
 const SERVICE_TYPES_TABLE = 'service_types';
@@ -593,6 +594,9 @@ function normalizeServiceType(type, fallback = null) {
   const source = type || fallback;
   if (!source) return null;
 
+  const normalizedSchedule = normalizeFeeSchedule(source.fee_by_category);
+  const hasCategorySchedule = Object.keys(normalizedSchedule).length > 0;
+
   return {
     ...cloneServiceType(source),
     id: source.id,
@@ -600,6 +604,7 @@ function normalizeServiceType(type, fallback = null) {
     icon: source.icon || '',
     description: source.description || '',
     fee: typeof source.fee === 'number' ? source.fee : Number(source.fee) || 0,
+    fee_by_category: hasCategorySchedule ? normalizedSchedule : {},
     requirements: Array.isArray(source.requirements) ? source.requirements : [],
     workflow: Array.isArray(source.workflow) ? source.workflow : [],
     fields: Array.isArray(source.fields) ? source.fields : [],

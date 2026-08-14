@@ -142,6 +142,12 @@
               </div>
 
               <div class="form-group">
+                <label for="service-category-fees">Category Fees</label>
+                <textarea id="service-category-fees" class="form-control" rows="6" placeholder="Category Name | 160"></textarea>
+                <div class="json-help">Optional. One category per line using <code>Category Name | Amount</code>.</div>
+              </div>
+
+              <div class="form-group">
                 <label for="service-requirements">Requirements</label>
                 <textarea id="service-requirements" class="form-control" rows="7" placeholder="One requirement per line"></textarea>
                 <div class="json-help">Use one line per requirement. Blank lines are ignored.</div>
@@ -215,6 +221,7 @@ const fields = {
   icon: document.getElementById('service-icon'),
   description: document.getElementById('service-description'),
   fee: document.getElementById('service-fee'),
+  categoryFees: document.getElementById('service-category-fees'),
   requirements: document.getElementById('service-requirements'),
   workflow: document.getElementById('service-workflow'),
   jsonFields: document.getElementById('service-fields'),
@@ -290,6 +297,53 @@ function feeLabel(value) {
   return `PHP ${fee.toLocaleString('en-PH')}`;
 }
 
+function formatCategoryFees(value) {
+  const schedule = value && typeof value === 'object' ? value : {};
+  return Object.entries(schedule)
+    .filter(([category, amount]) => String(category || '').trim() !== '' && Number.isFinite(Number(amount)))
+    .map(([category, amount]) => `${category} | ${Number(amount)}`)
+    .join('\n');
+}
+
+function parseCategoryFees(rawText, { silent = false } = {}) {
+  const schedule = {};
+  const seen = new Set();
+  const lines = String(rawText || '')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
+
+  for (const line of lines) {
+    const parts = line.split('|');
+    if (parts.length < 2) {
+      if (!silent) showToast('Category fee lines must follow "Category Name | Amount".', 'danger');
+      return null;
+    }
+    const category = parts[0].trim();
+    const amountText = parts.slice(1).join('|').trim();
+    const key = category.toLowerCase();
+    const amount = Number(amountText);
+
+    if (!category) {
+      if (!silent) showToast('Category name cannot be empty.', 'danger');
+      return null;
+    }
+    if (seen.has(key)) {
+      if (!silent) showToast(`Duplicate category detected: ${category}`, 'danger');
+      return null;
+    }
+    if (!Number.isFinite(amount) || amount < 0) {
+      if (!silent) showToast(`Invalid category amount for "${category}".`, 'danger');
+      return null;
+    }
+
+    seen.add(key);
+    schedule[category] = amount;
+  }
+
+  return schedule;
+}
+
 function loadServiceIntoForm(service) {
   if (!service) return;
 
@@ -300,6 +354,7 @@ function loadServiceIntoForm(service) {
   fields.icon.value = service.icon || '';
   fields.description.value = service.description || '';
   fields.fee.value = Number(service.fee) || 0;
+  fields.categoryFees.value = formatCategoryFees(service.fee_by_category);
   fields.requirements.value = (service.requirements || []).join('\n');
   fields.workflow.value = (service.workflow || []).join('\n');
   fields.jsonFields.value = JSON.stringify(service.fields || [], null, 2);
@@ -356,6 +411,8 @@ function buildServiceDraft() {
   if (jsonFields === null) return null;
   const jsonFiles = parseJsonArray(fields.jsonFiles.value, 'Required Files JSON');
   if (jsonFiles === null) return null;
+  const categoryFees = parseCategoryFees(fields.categoryFees.value);
+  if (categoryFees === null) return null;
 
   const feeText = fields.fee.value.trim();
   const feeValue = feeText === '' ? 0 : Number(feeText);
@@ -369,6 +426,7 @@ function buildServiceDraft() {
     id: fields.id.value,
     ...previewDraft,
     fee: feeValue,
+    fee_by_category: categoryFees,
     fields: jsonFields,
     files: jsonFiles,
   };
@@ -384,6 +442,13 @@ function updatePreview() {
   const workflowHtml = draft.workflow.length
     ? `<ol>${draft.workflow.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ol>`
     : '<div class="preview-empty">No workflow steps configured.</div>';
+  const categoryFees = parseCategoryFees(fields.categoryFees.value, { silent: true }) || {};
+  const categoryFeeHtml = Object.keys(categoryFees).length
+    ? `<div class="preview-section">
+        <h3 style="font-size:.92rem;">Category Fees</h3>
+        <ul>${Object.entries(categoryFees).map(([category, amount]) => `<li>${escapeHtml(category)} — ${escapeHtml(feeLabel(amount))}</li>`).join('')}</ul>
+      </div>`
+    : '';
 
   preview.innerHTML = `
     <h3>${escapeHtml(draft.icon || '🛠️')} ${escapeHtml(draft.name || 'Untitled Service')}</h3>
@@ -401,6 +466,7 @@ function updatePreview() {
       <h3 style="font-size:.92rem;">Workflow / Steps</h3>
       ${workflowHtml}
     </div>
+    ${categoryFeeHtml}
   `;
 }
 
